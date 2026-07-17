@@ -1,0 +1,40 @@
+name: "WhatsApp Reminder Platform"
+version: "1.0.0"
+slug: "whatsapp_reminder_platform"
+description: "Multi-user WhatsApp reminders via WAHA, with optional Postgres/Sheets storage."
+url: "https://github.com/your-org/whatsapp-reminder-platform"
+arch:
+  - aarch64
+  - amd64
+  - armv7
+init: false
+startup: services
+boot: auto
+ingress: true
+ingress_port: 8080
+panel_icon: mdi:whatsapp
+ports:
+  8080/tcp: 8080
+ports_description:
+  8080/tcp: "Reminder platform HTTP API"
+options:
+  storage_backends: "postgres"
+  database_url: ""
+  google_sheets_spreadsheet_id: ""
+  waha_base_url: ""
+  waha_api_key: ""
+  ha_notify_webhook_url: "https://supervisor/core/api/webhook/reminder_sent"
+  scheduler_cron: "*/1 * * * *"
+  default_footer_template: "\n\n~Auto Reminder~      ~تذكير تلقائي~"
+schema:
+  storage_backends: "list(postgres|sheets|postgres+sheets)"
+  database_url: "str?"
+  google_sheets_spreadsheet_id: "str?"
+  waha_base_url: "url"
+  waha_api_key: "password"
+  ha_notify_webhook_url: "str?"
+  scheduler_cron: "str"
+  default_footer_template: "str"
+map:
+  - addon_config:rw
+  - ssl
