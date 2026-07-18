@@ -133,32 +133,47 @@ the Supervisor requires; a repo with `config.yaml` buried in a subfolder and
 no `repository.yaml` is what produces the "not a valid add-on repository"
 error.
 
-1. In HA: **Settings -> Add-ons -> Add-on Store -> ⋮ (top right) ->
+**The app is not built on-device.** Compiling TypeScript and running
+`npm install` at install time can exhaust RAM on a small device (this
+happened on a Raspberry Pi 4 during testing and hung the whole box).
+Instead, `.github/workflows/build-app-image.yml` builds a multi-arch
+(amd64 + arm64) image on GitHub's servers on every push to `main` and
+publishes it to GHCR; `config.yaml`'s `image:` field points Supervisor at
+that prebuilt image, so installing is just a `docker pull`, not a build.
+
+1. Push to `main` (or run the workflow manually from the **Actions** tab).
+   Wait for **Build and publish app image** to finish - check the Actions
+   tab on GitHub.
+2. **First time only:** the published package defaults to private, and
+   Supervisor can't authenticate to pull it. Go to your GitHub profile ->
+   **Packages** -> `whatsapp-reminder-platform` -> **Package settings** ->
+   change visibility to **Public**.
+3. In HA: **Settings -> Add-ons -> Add-on Store -> ⋮ (top right) ->
    Repositories**, and add your GitHub repo URL, e.g.
    `https://github.com/ammaralfarsi/whatsapp_reminder_project`. Click **Add**,
    then close and reopen the Add-on Store.
-2. "WhatsApp Reminder Platform" should now appear under a new "Ammar's
-   Add-ons" section. Install it.
-   - The add-on's Dockerfile builds by `git clone`-ing the app source
-     (`src/`, `package.json`, `migrations/`) from that same GitHub URL at
-     build time, since the Supervisor only gives the build access to the
-     `whatsapp_reminder_platform/` folder itself, not the rest of the repo.
-     If you rename or fork the repo, update `APP_REPO_URL` at the top of
-     `whatsapp_reminder_platform/Dockerfile` to match.
-3. Fill in the add-on's **Configuration** tab (storage backend, WAHA URL/key,
+4. "WhatsApp Reminder Platform" should now appear under a new "Ammar's
+   Add-ons" section. Install it - this pulls the image from GHCR instead of
+   building, so it should be fast and light even on a Pi.
+5. Fill in the add-on's **Configuration** tab (storage backend, WAHA URL/key,
    optional Postgres URL / Sheets spreadsheet ID).
-4. Start the add-on. It listens on port 8080 and exposes an Ingress panel.
-5. Wire up your dashboard using `whatsapp_reminder_platform/dashboard-example.yaml`,
+6. Start the add-on. It listens on port 8080 and exposes an Ingress panel.
+7. Wire up your dashboard using `whatsapp_reminder_platform/dashboard-example.yaml`,
    which adapts your existing mushroom-card dashboard to call the new API
    instead of the old Apps Script web app - same look, same helpers, new
    backend.
+
+Every time you bump `version:` in `whatsapp_reminder_platform/config.yaml`
+and push, CI publishes a new tag and HA will offer an update - there's no
+separate "rebuild" step to remember.
 
 If the repository still won't add: repo must be public (or added with a
 token HA can use), `repository.yaml` must sit at the repo root, and the
 add-on folder must contain `config.yaml` directly at its own root (not
 nested further) - all true here after this restructure, so a stale Supervisor
 cache is the next thing to check (⋮ -> Reload in the Add-on Store, or
-restart Supervisor).
+restart Supervisor). If install fails specifically on pulling the image,
+the GHCR package is probably still private - see step 2 above.
 
 The add-on defaults `HA_BASE_URL`/`HA_LONG_LIVED_TOKEN` to the internal
 Supervisor API, so `HA_NOTIFY_WEBHOOK_URL` and any `ha-whatsapp` calls reach

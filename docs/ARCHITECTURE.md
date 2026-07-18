@@ -40,11 +40,12 @@ src/
 
 migrations/001_init.sql          Postgres schema
 repository.yaml                  marks this repo as a Home Assistant add-on repository (required by Supervisor)
+.github/workflows/build-app-image.yml  builds the app image on GitHub's servers (not on-device) and publishes it to
+                                  GHCR on every push to main - see "Not built on-device" below
 whatsapp_reminder_platform/      the HA app (formerly "add-on") itself - config.yaml, Dockerfile, run.sh, dashboard-example.yaml.
-                                  No build.yaml - since Supervisor 2026.04.0 that file isn't read; the base image is
-                                  set directly via FROM in the Dockerfile instead. Self-contained: the Dockerfile
-                                  `git clone`s src/ + package.json from this same repo at build time, since the
-                                  Supervisor only gives it this one folder as context.
+                                  No build.yaml - since Supervisor 2026.04.0 that file isn't read. config.yaml sets
+                                  `image: ghcr.io/ammaralfarsi/whatsapp-reminder-platform`, so Supervisor pulls the
+                                  CI-built image instead of building locally.
 Dockerfile, docker-compose.yml   plain container deployment (uses src/ directly, no cloning needed)
 ```
 
@@ -58,3 +59,17 @@ into the scheduling logic and become swappable pieces - hence
 `StorageAdapter` and `WhatsAppGateway`. `src/reminders/scheduler.ts` and
 `src/api/routes/*.ts` never import `pg`, `googleapis`, or `axios` directly;
 they only depend on the two interfaces.
+
+# Not built on-device
+
+The HA app used to build itself locally on the Supervisor: `git clone` the
+repo, `npm install`, compile TypeScript, all inside the Docker build step
+that runs on whatever device HA is on. On a Raspberry Pi 4 that ran the box
+out of RAM during install and hung it. `.github/workflows/build-app-image.yml`
+now does that same build on GitHub's runners instead, publishing a
+multi-arch image to GHCR; `whatsapp_reminder_platform/config.yaml`'s
+`image:` field tells Supervisor to pull that finished image rather than
+build anything itself. The app's Dockerfile still exists, but it's CI-only
+now - it expects a repo-root build context (which CI provides via
+`context: .` / `file: whatsapp_reminder_platform/Dockerfile`), not the
+single-folder context the Supervisor gives a local build.
