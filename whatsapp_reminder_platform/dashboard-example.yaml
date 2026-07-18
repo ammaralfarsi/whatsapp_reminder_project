@@ -1,0 +1,113 @@
+# ============================================================================
+# Home Assistant integration example, adapted from your existing mushroom-card
+# dashboard (the one calling script.add_reminder_to_sheet). This wires the
+# same UI to the new platform's API instead of the old Apps Script web app.
+#
+# Three pieces below - all go in different places in your HA config:
+#   1. helpers (configuration.yaml or Settings -> Devices & Services -> Helpers)
+#   2. rest_command + script (configuration.yaml, under those top-level keys)
+#   3. the Lovelace dashboard card (same as your original, target changed)
+# ============================================================================
+
+# ---- 1. Helpers (same ones your original dashboard already used) ----
+input_select:
+  reminder_recipient_list:
+    name: "Saved Recipients"
+    options: []            # populated by syncContactsToHA-equivalent, see README
+  reminder_recurrence:
+    name: "Recurrence"
+    options: ["No", "Yes"]
+  reminder_frequency:
+    name: "Frequency"
+    options: ["Daily", "Weekly", "Monthly", "Yearly"]
+
+input_text:
+  reminder_recipient:
+    name: "Recipient Number"
+  reminder_message:
+    name: "Message"
+
+input_datetime:
+  reminder_datetime:
+    name: "Send At"
+    has_date: true
+    has_time: true
+
+# ---- 2. REST call + script, replacing script.add_reminder_to_sheet ----
+# NUMBER_ID below is the id returned by POST /api/numbers when you registered
+# this HA instance's WhatsApp number - see README "Home Assistant setup".
+rest_command:
+  add_reminder:
+    url: "http://<reminder-app-host>:8080/api/reminders"
+    method: POST
+    headers:
+      X-Api-Key: "<your-user-api-key>"
+      Content-Type: "application/json"
+    payload: >
+      {
+        "numberId": "<NUMBER_ID>",
+        "recipient": "{{ recipient }}",
+        "message": "{{ message }}",
+        "triggerDateTime": "{{ trigger }}",
+        "recurrence": "{{ recurrence }}",
+        "frequency": "{{ frequency }}"
+      }
+
+script:
+  add_reminder_to_sheet:  # kept the original name so your existing dashboard needs no edits
+    sequence:
+      - service: rest_command.add_reminder
+        data:
+          recipient: "{{ states('input_text.reminder_recipient') }}"
+          message: "{{ states('input_text.reminder_message') }}"
+          trigger: "{{ states('input_datetime.reminder_datetime') }}"
+          recurrence: "{{ states('input_select.reminder_recurrence') }}"
+          frequency: "{{ states('input_select.reminder_frequency') }}"
+      - service: input_text.set_value
+        target: { entity_id: input_text.reminder_recipient }
+        data: { value: "" }
+      - service: input_text.set_value
+        target: { entity_id: input_text.reminder_message }
+        data: { value: "" }
+
+---
+# ---- 3. Lovelace card (your original, unchanged) ----
+type: vertical-stack
+cards:
+  - type: custom:mushroom-title-card
+    title: 📆 WhatsApp Reminder
+  - type: custom:mushroom-select-card
+    entity: input_select.reminder_recipient_list
+  - type: custom:mushroom-entity-card
+    entity: input_text.reminder_recipient
+    name: 📱 Recipient Number
+    icon: mdi:phone
+    hold_action:
+      action: none
+    double_tap_action:
+      action: none
+  - type: custom:mushroom-entity-card
+    entity: input_text.reminder_message
+    name: 💬 Message
+    icon: mdi:message-text
+  - type: custom:mushroom-entity-card
+    entity: input_datetime.reminder_datetime
+    name: ⏰ Send At
+    icon: mdi:calendar-clock
+  - type: custom:mushroom-select-card
+    entity: input_select.reminder_recurrence
+    name: 🔁 Recurrence
+    layout: horizontal
+  - type: custom:mushroom-select-card
+    entity: input_select.reminder_frequency
+    name: 🔄 Frequency
+    layout: horizontal
+  - type: custom:mushroom-template-card
+    primary: ➕ Add Reminder
+    icon: mdi:send
+    tap_action:
+      action: call-service
+      service: script.add_reminder_to_sheet
+    fill_container: false
+    multiline_secondary: false
+    layout: horizontal
