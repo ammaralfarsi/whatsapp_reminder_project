@@ -3,6 +3,11 @@ version: "1.0.1"
 slug: "whatsapp_reminder_platform"
 description: "Multi-user WhatsApp reminders via WAHA, with optional Postgres/Sheets storage."
 url: "https://github.com/ammaralfarsi/whatsapp_reminder_project"
+# Prebuilt multi-arch image, published by .github/workflows/build-app-image.yml
+# on every push to main. Supervisor pulls this instead of building on-device -
+# critical on a Raspberry Pi, where compiling TypeScript locally can exhaust
+# RAM and hang the whole box (as happened during the first install attempt).
+image: "ghcr.io/ammaralfarsi/whatsapp-reminder-platform"
 arch:
   - aarch64
   - amd64

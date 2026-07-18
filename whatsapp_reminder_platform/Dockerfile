@@ -1,27 +1,22 @@
 # Home Assistant app (formerly "add-on") image.
 #
-# As of Supervisor 2026.04.0, the Supervisor no longer injects a BUILD_FROM
-# base image via build.yaml - that file is no longer read at all. The base
-# image must be set directly with FROM (see
-# https://developers.home-assistant.io/docs/apps/configuration). This is a
-# multi-arch manifest image, so one FROM line covers aarch64 and amd64.
+# This is built by CI ONLY (.github/workflows/build-app-image.yml), not by
+# the Supervisor on-device - config.yaml's `image:` field tells Supervisor
+# to pull the prebuilt result from GHCR instead of running a local Docker
+# build. That matters on small devices (Raspberry Pi, etc.): compiling
+# TypeScript and running `npm install` at install time can exhaust RAM and
+# hang the whole box. Building once on GitHub's servers and just *pulling* a
+# finished multi-arch image avoids that entirely.
 #
-# The Supervisor builds each app using ONLY this folder as context, so this
-# Dockerfile fetches the actual app source (src/, package.json,
-# migrations/) from the GitHub repo at build time instead of assuming it's
-# sitting next to it. If you fork this repo, update APP_REPO_URL below.
-ARG APP_REPO_URL=https://github.com/ammaralfarsi/whatsapp_reminder_project.git
-ARG APP_REPO_REF=main
-
+# Because CI checks out the full repo, the build context here is the repo
+# root (see the workflow's `context: .` / `file: whatsapp_reminder_platform/
+# Dockerfile`), so this can COPY src/, package.json, etc. directly - no need
+# to git-clone itself the way the old on-device version did.
 FROM node:20-alpine AS build
-ARG APP_REPO_URL
-ARG APP_REPO_REF
-RUN apk add --no-cache git
-WORKDIR /src
-RUN git clone --depth 1 --branch "$APP_REPO_REF" "$APP_REPO_URL" .
 WORKDIR /app
-RUN cp /src/package.json /src/tsconfig.json ./ && cp -r /src/src ./src && cp -r /src/migrations ./migrations
+COPY package.json tsconfig.json ./
 RUN npm install
+COPY src ./src
 RUN npm run build
 
 FROM ghcr.io/home-assistant/base:latest
@@ -31,11 +26,11 @@ RUN apk add --no-cache nodejs npm
 
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /app/package.json ./
+COPY package.json ./
 RUN npm install --omit=dev
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/migrations ./migrations
-COPY run.sh /run.sh
+COPY migrations ./migrations
+COPY whatsapp_reminder_platform/run.sh /run.sh
 RUN chmod a+x /run.sh
 
 LABEL \
