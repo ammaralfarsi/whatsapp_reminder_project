@@ -6,7 +6,6 @@ url: "https://github.com/ammaralfarsi/whatsapp_reminder_project"
 arch:
   - aarch64
   - amd64
-  - armv7
 init: false
 startup: services
 boot: auto

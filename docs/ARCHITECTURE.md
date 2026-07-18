@@ -40,9 +40,11 @@ src/
 
 migrations/001_init.sql          Postgres schema
 repository.yaml                  marks this repo as a Home Assistant add-on repository (required by Supervisor)
-whatsapp_reminder_platform/      the HA add-on itself - config.yaml, build.yaml, Dockerfile, run.sh, dashboard-example.yaml.
-                                  Self-contained: its Dockerfile `git clone`s src/ + package.json from this same
-                                  repo at build time, since the Supervisor only gives it this one folder as context.
+whatsapp_reminder_platform/      the HA app (formerly "add-on") itself - config.yaml, Dockerfile, run.sh, dashboard-example.yaml.
+                                  No build.yaml - since Supervisor 2026.04.0 that file isn't read; the base image is
+                                  set directly via FROM in the Dockerfile instead. Self-contained: the Dockerfile
+                                  `git clone`s src/ + package.json from this same repo at build time, since the
+                                  Supervisor only gives it this one folder as context.
 Dockerfile, docker-compose.yml   plain container deployment (uses src/ directly, no cloning needed)
 ```
 
