@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  reminder-app:
+    build: .
+    container_name: whatsapp-reminder-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./secrets:/app/secrets:ro
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: whatsapp-reminder-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: reminder_user
+      POSTGRES_PASSWORD: reminder_pass
+      POSTGRES_DB: reminders
+    ports:
+      - "5432:5432"
+    volumes:
+      - reminder_pg_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  reminder_pg_data:
