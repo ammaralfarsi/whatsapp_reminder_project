@@ -13,5 +13,6 @@ COPY package.json ./
 RUN npm install --omit=dev
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
+COPY public ./public
 EXPOSE 8080
 CMD ["node", "dist/index.js"]

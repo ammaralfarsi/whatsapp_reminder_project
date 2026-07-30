@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WhatsApp Reminder Platform - Settings</title>
+<link rel="icon" href="/favicon.png" />
+<style>
+  :root {
+    --wa-green: #25D366;
+    --wa-dark: #075E54;
+    --bg: #f0f2f5;
+    --card: #ffffff;
+    --text: #1c1e21;
+    --muted: #65676b;
+    --border: #e4e6eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: var(--wa-dark);
+    color: white;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header img { width: 32px; height: 32px; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header nav { margin-left: auto; }
+  header nav a { color: white; text-decoration: none; opacity: 0.85; font-size: 14px; }
+  header nav a:hover { opacity: 1; text-decoration: underline; }
+
+  main { max-width: 760px; margin: 24px auto; padding: 0 16px 60px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 18px;
+  }
+  .card h2 { margin: 0 0 4px; font-size: 16px; }
+  .card p.hint { color: var(--muted); font-size: 13px; margin: 4px 0 14px; }
+
+  .backend-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .backend-row:last-child { border-bottom: none; }
+  .backend-row input[type=checkbox] { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--wa-green); }
+  .backend-row label.title { font-weight: 600; cursor: pointer; }
+  .backend-row .desc { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .backend-body { width: 100%; }
+  .config-panel {
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: #f7f8fa;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    display: none;
+    font-size: 13.5px;
+  }
+  .config-panel.open { display: block; }
+
+  label.field { display: block; font-size: 12.5px; color: var(--muted); margin: 8px 0 3px; }
+  input[type=text], input[type=password], input[type=number], select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+  }
+  .radio-row { display: flex; gap: 18px; margin: 6px 0 4px; }
+  .radio-row label { font-size: 13.5px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+  button {
+    background: var(--wa-green); color: white; border: none; border-radius: 6px;
+    padding: 9px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer; margin-top: 8px;
+  }
+  button.secondary { background: white; color: var(--wa-dark); border: 1px solid var(--border); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button + button { margin-left: 8px; }
+
+  .status-line { font-size: 13px; margin-top: 8px; }
+  .status-ok { color: #1b873f; }
+  .status-bad { color: #c0392b; }
+  .save-bar {
+    position: sticky; bottom: 0; background: var(--card); border-top: 1px solid var(--border);
+    padding: 14px 22px; border-radius: 10px; display: flex; align-items: center; gap: 12px;
+  }
+  #adminKey { max-width: 320px; }
+  .sheet-list { max-height: 140px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; }
+  .sheet-item { padding: 7px 10px; font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; }
+  .sheet-item:hover { background: #eef7f0; }
+  .sheet-item.selected { background: var(--wa-green); color: white; }
+  code.small { font-size: 12px; background: #eee; padding: 2px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <img src="/favicon.png" alt="" onerror="this.style.display='none'" />
+  <h1>WhatsApp Reminder Platform &middot; Settings</h1>
+  <nav><a href="/reminder.html">+ New Reminder</a></nav>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Admin API key</h2>
+    <p class="hint">One of the values in <code class="small">ADMIN_API_KEYS</code>. Stored only in this browser (localStorage), sent as <code class="small">X-Api-Key</code>.</p>
+    <input type="password" id="adminKey" placeholder="Admin API key" />
+  </div>
+
+  <div class="card">
+    <h2>Storage backend(s)</h2>
+    <p class="hint">Pick any combination. With more than one enabled, writes go to all of them and the first one you check is treated as primary for reads.</p>
+
+    <div class="backend-row">
+      <input type="checkbox" id="cb-ha_local" />
+      <div class="backend-body">
+        <label class="title" for="cb-ha_local">Home Assistant local</label>
+        <div class="desc">A JSON file on disk. No external database, no Google account, nothing to configure - good for one household.</div>
+        <div class="config-panel" id="panel-ha_local">
+          <label class="field">Data file path (read-only)</label>
+          <input type="text" id="haLocalPath" disabled />
+        </div>
+      </div>
+    </div>
+
+    <div class="backend-row">
+      <input type="checkbox" id="cb-sheets" />
+      <div class="backend-body">
+        <label class="title" for="cb-sheets">Google Sheet</label>
+        <div class="desc">Connect your Google account directly - no API console, no service account JSON to create.</div>
+        <div class="config-panel" id="panel-sheets">
+          <div id="googleStatus" class="status-line">Not connected.</div>
+          <button type="button" id="btnGoogleConnect">Connect with Google</button>
+          <button type="button" class="secondary" id="btnGoogleRefresh">Refresh sheet list</button>
+          <button type="button" class="secondary" id="btnGoogleCreate">Create new sheet</button>
+          <div class="sheet-list" id="sheetList" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="backend-row">
+      <input type="checkbox" id="cb-postgres" />
+      <div class="backend-body">
+        <label class="title" for="cb-postgres">Postgres</label>
+        <div class="desc">Best for real multi-user use.</div>
+        <div class="config-panel" id="panel-postgres">
+          <div class="radio-row">
+            <label><input type="radio" name="pgMode" value="auto" checked /> Auto (we create the container)</label>
+            <label><input type="radio" name="pgMode" value="manual" /> Manual (connect to an existing Postgres)</label>
+          </div>
+
+          <div id="pgAuto">
+            <p class="hint" style="margin-top:2px;">Generates a strong password and starts a <code class="small">postgres:16-alpine</code> container for you (via the Docker socket, if this app can reach one - otherwise you'll get a docker-compose block to paste in).</p>
+            <button type="button" id="btnPgAuto">Create Postgres container</button>
+            <div class="status-line" id="pgAutoStatus"></div>
+            <pre id="pgComposeSnippet" style="display:none; background:#1c1e21; color:#d1f2d1; padding:10px; border-radius:6px; font-size:12px; overflow-x:auto;"></pre>
+          </div>
+
+          <div id="pgManual" style="display:none;">
+            <label class="field">Host</label>
+            <input type="text" id="pgHost" placeholder="e.g. 192.168.1.20 or db.example.com" />
+            <label class="field">Port</label>
+            <input type="number" id="pgPort" value="5432" />
+            <label class="field">Database</label>
+            <input type="text" id="pgDatabase" value="reminders" />
+            <label class="field">User</label>
+            <input type="text" id="pgUser" value="reminder_user" />
+            <label class="field">Password</label>
+            <input type="password" id="pgPassword" />
+            <label class="field"><input type="checkbox" id="pgSsl" style="width:auto; accent-color:var(--wa-green);" /> Use SSL</label>
+            <div>
+              <button type="button" class="secondary" id="btnPgTest">Test connection</button>
+              <button type="button" id="btnPgSaveManual">Save &amp; connect</button>
+            </div>
+            <div class="status-line" id="pgManualStatus"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card save-bar">
+    <button type="button" id="btnSaveBackends">Save storage selection</button>
+    <span class="status-line" id="saveStatus"></span>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const adminKeyInput = $('adminKey');
+adminKeyInput.value = localStorage.getItem('adminApiKey') || '';
+adminKeyInput.addEventListener('input', () => localStorage.setItem('adminApiKey', adminKeyInput.value));
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'X-Api-Key': adminKeyInput.value, ...(opts.headers || {}) },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok && res.status !== 202) throw new Error(body.error || `${res.status} ${res.statusText}`);
+  return { ok: res.ok, status: res.status, body };
+}
+
+function togglePanel(kind, checked) {
+  $(`panel-${kind}`).classList.toggle('open', checked);
+}
+
+['ha_local', 'sheets', 'postgres'].forEach((kind) => {
+  $(`cb-${kind}`).addEventListener('change', (e) => togglePanel(kind, e.target.checked));
+});
+
+document.querySelectorAll('input[name=pgMode]').forEach((r) => {
+  r.addEventListener('change', () => {
+    const mode = document.querySelector('input[name=pgMode]:checked').value;
+    $('pgAuto').style.display = mode === 'auto' ? 'block' : 'none';
+    $('pgManual').style.display = mode === 'manual' ? 'block' : 'none';
+  });
+});
+
+async function loadSettings() {
+  if (!adminKeyInput.value) return;
+  try {
+    const { body: s } = await api('/api/settings');
+    $('cb-ha_local').checked = s.enabledBackends.includes('ha_local');
+    $('cb-sheets').checked = s.enabledBackends.includes('sheets');
+    $('cb-postgres').checked = s.enabledBackends.includes('postgres');
+    ['ha_local', 'sheets', 'postgres'].forEach((k) => togglePanel(k, $(`cb-${k}`).checked));
+
+    $('haLocalPath').value = s.haLocal.filePath;
+
+    if (s.postgres.mode === 'manual') {
+      document.querySelector('input[name=pgMode][value=manual]').checked = true;
+      $('pgAuto').style.display = 'none';
+      $('pgManual').style.display = 'block';
+      if (s.postgres.manual) {
+        $('pgHost').value = s.postgres.manual.host || '';
+        $('pgPort').value = s.postgres.manual.port || 5432;
+        $('pgDatabase').value = s.postgres.manual.database || 'reminders';
+        $('pgUser').value = s.postgres.manual.user || 'reminder_user';
+      }
+    }
+
+    await refreshGoogleStatus();
+  } catch (err) {
+    $('saveStatus').textContent = 'Could not load settings: ' + err.message;
+    $('saveStatus').className = 'status-line status-bad';
+  }
+}
+
+async function refreshGoogleStatus() {
+  try {
+    const { body } = await api('/api/integrations/google/status');
+    $('googleStatus').textContent = body.connected
+      ? `Connected as ${body.connectedEmail || 'unknown'}${body.selectedSpreadsheetId ? ' - sheet selected' : ' - pick a sheet below'}`
+      : 'Not connected.';
+    $('googleStatus').className = 'status-line ' + (body.connected ? 'status-ok' : '');
+  } catch (err) {
+    $('googleStatus').textContent = err.message;
+  }
+}
+
+$('btnGoogleConnect').addEventListener('click', () => {
+  if (!adminKeyInput.value) return alert('Enter the admin API key first.');
+  window.location.href = '/api/integrations/google/connect?key=' + encodeURIComponent(adminKeyInput.value);
+});
+
+$('btnGoogleRefresh').addEventListener('click', async () => {
+  try {
+    const { body: files } = await api('/api/integrations/google/spreadsheets');
+    const list = $('sheetList');
+    list.style.display = 'block';
+    list.innerHTML = files.length
+      ? files.map((f) => `<div class="sheet-item" data-id="${f.id}">${f.name}</div>`).join('')
+      : '<div class="sheet-item">No spreadsheets found.</div>';
+    list.querySelectorAll('.sheet-item[data-id]').forEach((el) => {
+      el.addEventListener('click', () => selectSheet(el.dataset.id, el));
+    });
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+$('btnGoogleCreate').addEventListener('click', async () => {
+  const title = prompt('Name for the new spreadsheet:', 'WhatsApp Reminder Platform');
+  if (!title) return;
+  try {
+    const { body: sheet } = await api('/api/integrations/google/spreadsheets', { method: 'POST', body: JSON.stringify({ title }) });
+    await selectSheet(sheet.id);
+    alert(`Created "${sheet.name}" and selected it.`);
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+async function selectSheet(id, el) {
+  document.querySelectorAll('.sheet-item').forEach((x) => x.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  await api('/api/integrations/google/select', { method: 'POST', body: JSON.stringify({ spreadsheetId: id }) });
+  await refreshGoogleStatus();
+}
+
+$('btnPgTest').addEventListener('click', async () => {
+  $('pgManualStatus').textContent = 'Testing...';
+  try {
+    const { body } = await api('/api/settings/postgres/test', { method: 'POST', body: JSON.stringify(pgManualPayload()) });
+    $('pgManualStatus').textContent = body.ok ? 'Connection OK.' : body.error;
+    $('pgManualStatus').className = 'status-line ' + (body.ok ? 'status-ok' : 'status-bad');
+  } catch (err) {
+    $('pgManualStatus').textContent = err.message;
+    $('pgManualStatus').className = 'status-line status-bad';
+  }
+});
+
+$('btnPgSaveManual').addEventListener('click', async () => {
+  try {
+    const { body } = await api('/api/settings/postgres/manual', { method: 'POST', body: JSON.stringify(pgManualPayload()) });
+    $('pgManualStatus').textContent = `Saved. Connected to ${body.databaseUrl}`;
+    $('pgManualStatus').className = 'status-line status-ok';
+  } catch (err) {
+    $('pgManualStatus').textContent = err.message;
+    $('pgManualStatus').className = 'status-line status-bad';
+  }
+});
+
+function pgManualPayload() {
+  return {
+    host: $('pgHost').value,
+    port: Number($('pgPort').value || 5432),
+    database: $('pgDatabase').value,
+    user: $('pgUser').value,
+    password: $('pgPassword').value,
+    ssl: $('pgSsl').checked,
+  };
+}
+
+$('btnPgAuto').addEventListener('click', async () => {
+  $('pgAutoStatus').textContent = 'Provisioning...';
+  $('pgAutoStatus').className = 'status-line';
+  try {
+    const { body } = await api('/api/settings/postgres/auto', { method: 'POST' });
+    if (body.started) {
+      $('pgAutoStatus').textContent = `${body.note} Connected at ${body.databaseUrl}.`;
+      $('pgAutoStatus').className = 'status-line status-ok';
+      $('pgComposeSnippet').style.display = 'none';
+    } else {
+      $('pgAutoStatus').textContent = body.note;
+      $('pgAutoStatus').className = 'status-line status-bad';
+      $('pgComposeSnippet').style.display = 'block';
+      $('pgComposeSnippet').textContent = body.composeSnippet;
+    }
+  } catch (err) {
+    $('pgAutoStatus').textContent = err.message;
+    $('pgAutoStatus').className = 'status-line status-bad';
+  }
+});
+
+$('btnSaveBackends').addEventListener('click', async () => {
+  const enabledBackends = ['ha_local', 'sheets', 'postgres'].filter((k) => $(`cb-${k}`).checked);
+  if (!enabledBackends.length) return alert('Enable at least one storage backend.');
+  try {
+    const { ok, body } = await api('/api/settings/backends', { method: 'PUT', body: JSON.stringify({ enabledBackends }) });
+    $('saveStatus').textContent = ok ? 'Saved and applied.' : `Saved, but not applied yet: ${body.error}`;
+    $('saveStatus').className = 'status-line ' + (ok ? 'status-ok' : 'status-bad');
+  } catch (err) {
+    $('saveStatus').textContent = err.message;
+    $('saveStatus').className = 'status-line status-bad';
+  }
+});
+
+adminKeyInput.addEventListener('change', loadSettings);
+loadSettings();
+
+// Coming back from the Google OAuth redirect.
+if (new URLSearchParams(location.search).get('google') === 'connected') {
+  $('cb-sheets').checked = true;
+  togglePanel('sheets', true);
+}
+</script>
+</body>
+</html>

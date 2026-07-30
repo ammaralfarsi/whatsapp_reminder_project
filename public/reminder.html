@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>New WhatsApp Reminder</title>
+<link rel="icon" href="/favicon.png" />
+<style>
+  :root {
+    --wa-green: #25D366;
+    --wa-dark: #075E54;
+    --wa-teal: #128C7E;
+    --bg: #e5ddd5;
+    --card: #ffffff;
+    --text: #1c1e21;
+    --muted: #65676b;
+    --border: #e4e6eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    background: var(--wa-dark);
+    color: white;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header img { width: 32px; height: 32px; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header nav { margin-left: auto; }
+  header nav a { color: white; text-decoration: none; opacity: 0.85; font-size: 14px; }
+
+  main { max-width: 480px; margin: 28px auto; padding: 0 16px 60px; }
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 22px 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    margin-bottom: 16px;
+  }
+  label.field { display: block; font-size: 12.5px; color: var(--muted); margin: 12px 0 4px; font-weight: 600; }
+  input[type=text], input[type=password], input[type=datetime-local], select, textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit;
+  }
+  textarea { resize: vertical; min-height: 70px; }
+  .radio-row { display: flex; gap: 18px; margin: 6px 0 2px; }
+  .radio-row label { font-size: 13.5px; display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal; color: var(--text); }
+
+  button.primary {
+    width: 100%; background: var(--wa-green); color: white; border: none; border-radius: 8px;
+    padding: 13px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 18px;
+  }
+  button.primary:disabled { opacity: 0.5; cursor: default; }
+  .status-line { font-size: 13.5px; margin-top: 10px; text-align: center; }
+  .status-ok { color: #1b873f; }
+  .status-bad { color: #c0392b; }
+
+  .gate { text-align: center; }
+  .gate p { color: var(--muted); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<header>
+  <img src="/favicon.png" alt="" onerror="this.style.display='none'" />
+  <h1>New Reminder</h1>
+  <nav><a href="/settings.html">Settings</a></nav>
+</header>
+
+<main>
+  <div class="card gate" id="gate">
+    <label class="field" style="text-align:left;">Your API key</label>
+    <input type="password" id="apiKey" placeholder="Your personal API key" />
+    <p>Ask whoever set up this platform for your <code>X-Api-Key</code>. Stored only in this browser.</p>
+  </div>
+
+  <form class="card" id="form" style="display:none;">
+    <label class="field">Send from</label>
+    <select id="numberId" required></select>
+
+    <label class="field">Recipient number</label>
+    <input type="text" id="recipient" placeholder="e.g. 96895537783" required />
+
+    <label class="field">Message</label>
+    <textarea id="message" placeholder="What should the reminder say?" required></textarea>
+
+    <label class="field">Send at</label>
+    <input type="datetime-local" id="triggerDateTime" required />
+
+    <label class="field">Recurring?</label>
+    <div class="radio-row">
+      <label><input type="radio" name="recurrence" value="No" checked /> No</label>
+      <label><input type="radio" name="recurrence" value="Yes" /> Yes</label>
+    </div>
+
+    <div id="frequencyRow" style="display:none;">
+      <label class="field">Frequency</label>
+      <select id="frequency">
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly</option>
+        <option value="yearly">Yearly</option>
+      </select>
+    </div>
+
+    <button class="primary" type="submit">Add reminder</button>
+    <div class="status-line" id="status"></div>
+  </form>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const apiKeyInput = $('apiKey');
+apiKeyInput.value = localStorage.getItem('userApiKey') || '';
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKeyInput.value, ...(opts.headers || {}) },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || `${res.status} ${res.statusText}`);
+  return body;
+}
+
+async function unlock() {
+  if (!apiKeyInput.value) return;
+  try {
+    await api('/api/me'); // validates the key
+    localStorage.setItem('userApiKey', apiKeyInput.value);
+    const numbers = await api('/api/numbers');
+    if (!numbers.length) {
+      $('gate').innerHTML = '<p>No WhatsApp numbers connected yet for this account. Connect one first (see the README), then reload this page.</p>';
+      return;
+    }
+    $('numberId').innerHTML = numbers.map((n) => `<option value="${n.id}">${n.label} (${n.phoneNumber})</option>`).join('');
+    $('gate').style.display = 'none';
+    $('form').style.display = 'block';
+  } catch (err) {
+    $('gate').querySelector('p').textContent = 'Invalid API key: ' + err.message;
+  }
+}
+
+apiKeyInput.addEventListener('change', unlock);
+
+document.querySelectorAll('input[name=recurrence]').forEach((r) => {
+  r.addEventListener('change', () => {
+    $('frequencyRow').style.display = document.querySelector('input[name=recurrence]:checked').value === 'Yes' ? 'block' : 'none';
+  });
+});
+
+$('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = $('status');
+  status.textContent = 'Sending...';
+  status.className = 'status-line';
+  try {
+    await api('/api/reminders', {
+      method: 'POST',
+      body: JSON.stringify({
+        numberId: $('numberId').value,
+        recipient: $('recipient').value,
+        message: $('message').value,
+        triggerDateTime: $('triggerDateTime').value,
+        recurrence: document.querySelector('input[name=recurrence]:checked').value,
+        frequency: $('frequency').value,
+      }),
+    });
+    status.textContent = 'Reminder added.';
+    status.className = 'status-line status-ok';
+    e.target.reset();
+  } catch (err) {
+    status.textContent = err.message;
+    status.className = 'status-line status-bad';
+  }
+});
+
+unlock();
+</script>
+</body>
+</html>
