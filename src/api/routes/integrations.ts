@@ -1,10 +1,11 @@
 import { Router } from "express";
 import crypto from "crypto";
 import { google } from "googleapis";
-import { requireAdmin } from "../../auth/apiKeyAuth";
+import { requireAdmin, requireUser, AuthedRequest } from "../../auth/apiKeyAuth";
 import { buildGoogleAuthUrl, getOAuthClient } from "../../auth/googleOAuth";
 import { loadSettings, updateSettings } from "../../settings/settingsStore";
 import { reloadStorage } from "../../storage";
+import { StorageAdapter } from "../../storage/StorageAdapter";
 
 /**
  * "Connect with Google" for the Sheets storage backend - redirect-based
@@ -22,11 +23,13 @@ import { reloadStorage } from "../../storage";
  *      app should actually use, then hot-reloads storage
  *
  * Gated by the admin key since it changes shared platform storage config,
- * same as the rest of /api/settings.
+ * same as the rest of /api/settings. The one exception is
+ * GET /integrations/google/contacts (any user) - see the comment there.
  */
-export function integrationsRouter(): Router {
+export function integrationsRouter(storage: StorageAdapter): Router {
   const router = Router();
   const pendingStates = new Set<string>();
+  let contactsCache: { fetchedAt: number; contacts: Array<{ name: string; phoneNumber: string }> } | null = null;
 
   router.get("/integrations/google/status", requireAdmin, (_req, res) => {
     const settings = loadSettings();
@@ -121,6 +124,60 @@ export function integrationsRouter(): Router {
       res.status(500).json({ error: err.message });
     }
   });
+
+  // Powers the recipient searchable name+number dropdown in /reminder.html.
+  // Any logged-in user can call this (requireUser, not requireAdmin) - it
+  // reads from whichever single Google account is connected in Settings
+  // (the same one used for Sheets), shared across every user on this
+  // deployment, not each user's own account. If Google isn't connected yet,
+  // returns an empty list rather than an error so manual number entry keeps
+  // working regardless.
+  router.get("/integrations/google/contacts", requireUser(storage), async (req: AuthedRequest, res) => {
+    const settings = loadSettings();
+    if (!settings.sheets.oauth?.refreshToken) return res.json([]);
+
+    const q = String(req.query.q ?? "").trim().toLowerCase();
+    try {
+      const contacts = await getCachedContacts();
+      const filtered = q ? contacts.filter((c) => c.name.toLowerCase().includes(q) || c.phoneNumber.includes(q)) : contacts;
+      res.json(filtered.slice(0, 50));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // people.connections.list only ever returns the first 1000 connections
+  // (fine for a personal/family contacts list, not a full CRM), and there's
+  // no per-keystroke-friendly search endpoint that doesn't need a separate
+  // cache warm-up step (people.searchContacts), so this fetches the whole
+  // list and filters in-process instead - cached for a few minutes so
+  // typing in the recipient box doesn't hit Google on every keystroke.
+  async function getCachedContacts() {
+    const CACHE_MS = 5 * 60 * 1000;
+    if (contactsCache && Date.now() - contactsCache.fetchedAt < CACHE_MS) return contactsCache.contacts;
+
+    const settings = loadSettings();
+    const client = getOAuthClient();
+    client.setCredentials({ refresh_token: settings.sheets.oauth!.refreshToken });
+    const people = google.people({ version: "v1", auth: client as any });
+    const { data } = await people.people.connections.list({
+      resourceName: "people/me",
+      personFields: "names,phoneNumbers",
+      pageSize: 1000,
+    });
+    const contacts = (data.connections ?? [])
+      .flatMap((p) => {
+        const name = p.names?.[0]?.displayName ?? "(no name)";
+        return (p.phoneNumbers ?? []).map((ph) => ({
+          name,
+          phoneNumber: (ph.value ?? "").replace(/[^\d+]/g, ""),
+        }));
+      })
+      .filter((c) => c.phoneNumber);
+
+    contactsCache = { fetchedAt: Date.now(), contacts };
+    return contacts;
+  }
 
   router.post("/integrations/google/select", requireAdmin, async (req, res) => {
     const { spreadsheetId } = req.body ?? {};

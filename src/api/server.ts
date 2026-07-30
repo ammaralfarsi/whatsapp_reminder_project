@@ -32,7 +32,7 @@ export function createServer(storage: StorageAdapter) {
   app.use("/api", remindersRouter(storage));
   app.use("/api", templatesRouter(storage));
   app.use("/api", settingsRouter());
-  app.use("/api", integrationsRouter());
+  app.use("/api", integrationsRouter(storage));
   app.use("/api", gatewaysRouter(storage));
 
   // public/settings.html (storage backend setup) and public/reminder.html

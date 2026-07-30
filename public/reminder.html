@@ -5,95 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>New WhatsApp Reminder</title>
 <link rel="icon" href="/favicon.png" />
+<link rel="stylesheet" href="/ha-theme.css" />
 <style>
-  :root {
-    --wa-green: #25D366;
-    --wa-dark: #075E54;
-    --wa-teal: #128C7E;
-    --bg: #e5ddd5;
-    --card: #ffffff;
-    --text: #1c1e21;
-    --muted: #65676b;
-    --border: #e4e6eb;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
-  header {
-    background: var(--wa-dark);
-    color: white;
-    padding: 18px 24px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  header img { width: 32px; height: 32px; }
-  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
-  header nav { margin-left: auto; }
-  header nav a { color: white; text-decoration: none; opacity: 0.85; font-size: 14px; }
-
-  main { max-width: 480px; margin: 28px auto; padding: 0 16px 60px; }
-  .card {
-    background: var(--card);
-    border-radius: 12px;
-    padding: 22px 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-    margin-bottom: 16px;
-  }
-  label.field { display: block; font-size: 12.5px; color: var(--muted); margin: 12px 0 4px; font-weight: 600; }
-  input[type=text], input[type=password], input[type=datetime-local], select, textarea {
-    width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit;
-  }
-  textarea { resize: vertical; min-height: 70px; }
+  /* Page-specific bits not covered by the shared ha-theme.css. */
+  .card { background: var(--card-background-color); border-radius: var(--ha-card-border-radius); box-shadow: var(--ha-card-box-shadow); padding: 20px 22px; margin-bottom: 16px; }
   .radio-row { display: flex; gap: 18px; margin: 6px 0 2px; }
-  .radio-row label { font-size: 13.5px; display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal; color: var(--text); }
-
-  button.primary {
-    width: 100%; background: var(--wa-green); color: white; border: none; border-radius: 8px;
-    padding: 13px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 18px;
-  }
-  button.primary:disabled { opacity: 0.5; cursor: default; }
-  .status-line { font-size: 13.5px; margin-top: 10px; text-align: center; }
-  .status-ok { color: #1b873f; }
-  .status-bad { color: #c0392b; }
-
+  .radio-row label { font-size: 13.5px; display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal; color: var(--primary-text-color); }
+  button.primary { width: 100%; margin-top: 18px; }
+  .status-line { text-align: center; }
   .gate { text-align: center; }
-  .gate p { color: var(--muted); font-size: 13.5px; }
-  .hint { color: var(--muted); font-size: 12.5px; margin: 4px 0 0; }
-  button.secondary {
-    background: white; color: var(--wa-dark); border: 1px solid var(--border); border-radius: 8px;
-    padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 0;
-  }
+  .gate p { color: var(--secondary-text-color); font-size: 13.5px; }
+  button.secondary { margin-top: 0; }
   .numbers-head { display: flex; justify-content: space-between; align-items: center; }
   .numbers-head strong { font-size: 14px; }
-  .app-footer {
-    max-width: 480px; margin: 0 auto; padding: 8px 16px 30px; display: flex; align-items: center;
-    justify-content: center; gap: 10px; color: var(--muted); font-size: 12px;
-  }
-  .app-footer a { color: var(--muted); display: flex; align-items: center; line-height: 0; }
-  .app-footer svg { width: 16px; height: 16px; fill: currentColor; }
-  #tabActive.active, #tabArchived.active { background: var(--wa-green); color: white; border-color: var(--wa-green); }
-  .reminder-row { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  #tabActive.active, #tabArchived.active { background: var(--primary-color); color: var(--text-primary-color); border-color: var(--primary-color); }
+  .reminder-row { border: 1px solid var(--divider-color); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
   .reminder-row .msg { font-size: 13.5px; margin-bottom: 4px; }
-  .reminder-row .meta { font-size: 12px; color: var(--muted); }
-  .reminder-row .badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; margin-left: 6px; }
-  .badge-pending { background: #eef1f4; color: #555; }
-  .badge-sent { background: #e6f7ec; color: #1b873f; }
-  .badge-error { background: #fdeaea; color: #c0392b; }
+  .reminder-row .meta { font-size: 12px; color: var(--secondary-text-color); }
+  .reminder-row .badge { margin-left: 6px; }
   .reminder-row .actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
   .reminder-row .actions button { margin: 0; padding: 5px 9px; font-size: 12px; }
 </style>
 </head>
 <body>
-<header>
+<header class="ha-app-header">
   <img src="/favicon.png" alt="" onerror="this.style.display='none'" />
   <h1>New Reminder</h1>
-  <nav><a href="/settings.html">Settings</a></nav>
+  <nav><a href="/dashboard.html">Dashboard</a><a class="active" href="/reminder.html">Reminders</a><a href="/settings.html">Settings</a></nav>
 </header>
 
 <main>
@@ -145,7 +83,8 @@
     <select id="numberId" required></select>
 
     <label class="field">Recipient number</label>
-    <input type="text" id="recipient" placeholder="e.g. 96895537783" required />
+    <input type="text" id="recipient" list="contactsList" placeholder="Search a contact, or type a number" required autocomplete="off" />
+    <datalist id="contactsList"></datalist>
 
     <label class="field">Message</label>
     <textarea id="message" placeholder="What should the reminder say?" required></textarea>
@@ -231,6 +170,7 @@ async function proceedUnlocked() {
   $('numbersCard').style.display = 'block';
   if (!numbers.length) $('addNumberForm').style.display = 'block';
   await loadReminders();
+  loadContacts(''); // preload so the dropdown has options before the first keystroke
 }
 
 async function unlock() {
@@ -351,6 +291,27 @@ async function pollQr(numberId, status, attemptsLeft = 15) {
     status.className = 'status-line status-bad';
   }
 }
+
+// Google Contacts -> searchable name+number dropdown (falls back to plain
+// manual typing if Google isn't connected in Settings, or the lookup
+// fails - see GET /api/integrations/google/contacts). Uses a <datalist>:
+// the option's value (what gets typed into the input on selection) is the
+// phone number, its label is the contact's name, so picking a contact fills
+// the field with a number the API can use directly.
+let contactsDebounce = null;
+async function loadContacts(q) {
+  try {
+    const contacts = await api(`/api/integrations/google/contacts${q ? '?q=' + encodeURIComponent(q) : ''}`);
+    $('contactsList').innerHTML = contacts.map((c) => `<option value="${c.phoneNumber}">${escapeHtml(c.name)}</option>`).join('');
+  } catch {
+    // Not connected, not authorized yet, or a transient error - recipient
+    // field just behaves like a plain text input in that case.
+  }
+}
+$('recipient').addEventListener('input', () => {
+  clearTimeout(contactsDebounce);
+  contactsDebounce = setTimeout(() => loadContacts($('recipient').value.trim()), 300);
+});
 
 document.querySelectorAll('input[name=recurrence]').forEach((r) => {
   r.addEventListener('change', () => {

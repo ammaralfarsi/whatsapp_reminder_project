@@ -18,6 +18,7 @@ and storage. Runs as a plain Docker container or as a Home Assistant add-on.
 | Google service account JSON | "Connect with Google" - OAuth redirect, no API console work |
 | Hand-built Postgres connection string | Separate host/port/database/user/password fields, or one-click "Auto" container creation |
 | Old Apps Script web form | `/reminder.html` - a small standalone page to add a reminder from any browser, plus the original Lovelace card |
+| No status visibility | `/dashboard.html` - reminder stats (sent/pending/failed/archived) and live per-number connection status, with an inline QR to reconnect |
 
 ## Architecture
 
@@ -124,15 +125,28 @@ To enable the **Connect with Google** button at all, whoever deploys this
 app creates one OAuth client (their end users never see this step):
 
 1. [Google Cloud Console](https://console.cloud.google.com/) -> a project ->
-   **APIs & Services -> Credentials -> Create Credentials -> OAuth client
+   **APIs & Services -> Library**, enable the **Google Sheets API**,
+   **Google Drive API**, and **People API** (the last one powers the
+   recipient contacts search - skip it if you don't need that).
+2. **APIs & Services -> Credentials -> Create Credentials -> OAuth client
    ID -> Web application**.
-2. Under **Authorized redirect URIs**, add
+3. Under **Authorized redirect URIs**, add
    `{PUBLIC_BASE_URL}/api/integrations/google/callback` (exactly matching
    `PUBLIC_BASE_URL` in `.env`/the add-on's `public_base_url` option).
-3. Copy the Client ID and Client Secret into `GOOGLE_OAUTH_CLIENT_ID` /
+4. Copy the Client ID and Client Secret into `GOOGLE_OAUTH_CLIENT_ID` /
    `GOOGLE_OAUTH_CLIENT_SECRET`.
-4. If the OAuth consent screen is in "Testing" mode, add the Google
+5. If the OAuth consent screen is in "Testing" mode, add the Google
    account(s) that will click Connect as test users (or publish the app).
+   Testing-mode authorizations expire after 7 days - reconnect from Settings
+   when that happens.
+6. `spreadsheets` and `contacts.readonly` are both "sensitive" (not
+   "restricted") scopes - if you publish the app for others to use (not just
+   test users), Google's standard OAuth verification applies, not the
+   expensive CASA security assessment reserved for restricted scopes
+   (`drive.file` and `userinfo.email` don't need verification at all).
+7. Already connected before contacts search was added? Click **Connect with
+   Google** again in Settings - `prompt: consent` forces Google to ask for
+   the new `contacts.readonly` scope too.
 
 ## WhatsApp gateways: WAHA and ha-whatsapp
 
@@ -333,6 +347,39 @@ automatically (Supervisor's Ingress proxy sends `X-Remote-User-Id` - see
 `requireUser()` in `src/auth/apiKeyAuth.ts`). Opening the app any other way
 (direct port, external URL) still needs the personal API key as before.
 
+## Look and feel
+
+`/reminder.html`, `/dashboard.html` and `/settings.html` share a
+`/public/ha-theme.css` styled after Home Assistant's default Material look
+(colored top app bar, tab navigation between the three pages, rounded
+`ha-card`-style cards, auto light/dark via `prefers-color-scheme`). It's an
+approximation, not a live theme bridge - an Ingress-embedded page is its own
+document and can't read HA's actual CSS variables the way a native Lovelace
+card can.
+
+## Dashboard: connection status and stats
+
+`/dashboard.html` gives an at-a-glance view without opening the reminder
+form: a stats row (total/sent/pending/failed/archived reminders across all
+your numbers) and a connection-status card per WhatsApp number. Any number
+that isn't `connected` gets checked live and shows its QR code right there
+if one's needed - no need to go back into `/reminder.html`'s Add-number
+flow just to reconnect. Same API key / HA auto-login as the other pages.
+
+## Recipient picker: Google Contacts search
+
+Once Google is connected in Settings (see "Google OAuth setup" above, People
+API enabled), `/reminder.html`'s recipient field becomes a searchable
+name+number dropdown - type a name or number and matching contacts show up,
+pick one to fill in their number. It's read-only (`contacts.readonly`) and
+reads from whichever single Google account is connected in Settings, shared
+across every user on this deployment (not each person's own account -
+there's one shared OAuth connection, same as Sheets). Falls back to plain
+manual number entry if Google isn't connected, or the lookup fails for any
+reason. New endpoint: `GET /api/integrations/google/contacts?q=...` (any
+logged-in user, cached server-side for 5 minutes; reads up to the first
+1,000 contacts via `people.connections.list`).
+
 ## Timezones and reminder alerts
 
 `/reminder.html`'s own form always sends an unambiguous UTC instant, so it's
@@ -374,11 +421,14 @@ once you've decided which storage backend you're standardizing on.
 
 ## Not carried over (yet)
 
-- `assignLabelToChat` (WAHA label assignment) and `syncContactsToHA` (Google
-  Contacts -> HA `input_select` sync) from the original script aren't ported.
-  Both are straightforward to add as extra routes/cron jobs using the same
-  `WahaGateway`/`axios` patterns already in this repo - ask if you want them
-  wired in.
+- `assignLabelToChat` (WAHA label assignment) isn't ported - straightforward
+  to add as an extra route using the existing `WahaGateway`/`axios` patterns,
+  ask if you want it wired in. `syncContactsToHA` (Google Contacts -> HA
+  `input_select` sync) is *partially* covered instead by the recipient
+  contacts search in `/reminder.html` (see above) - contacts are searched
+  live via the People API rather than synced into an HA `input_select`; ask
+  if you specifically need the HA-side sync too (e.g. for the Lovelace
+  dashboard card, which doesn't have a search box to plug this into).
 - User self-service signup (currently admin-only via `ADMIN_API_KEYS`) - fine
   for "a few people I trust," would need real auth (passwords/OAuth) for
   public signup.

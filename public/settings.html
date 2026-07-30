@@ -5,120 +5,60 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>WhatsApp Reminder Platform - Settings</title>
 <link rel="icon" href="/favicon.png" />
+<link rel="stylesheet" href="/ha-theme.css" />
 <style>
-  :root {
-    --wa-green: #25D366;
-    --wa-dark: #075E54;
-    --bg: #f0f2f5;
-    --card: #ffffff;
-    --text: #1c1e21;
-    --muted: #65676b;
-    --border: #e4e6eb;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-  }
-  header {
-    background: var(--wa-dark);
-    color: white;
-    padding: 18px 24px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  header img { width: 32px; height: 32px; }
-  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
-  header nav { margin-left: auto; }
-  header nav a { color: white; text-decoration: none; opacity: 0.85; font-size: 14px; }
-  header nav a:hover { opacity: 1; text-decoration: underline; }
+  /* Page-specific bits not covered by the shared ha-theme.css. */
+  main { max-width: 760px; }
+  .card { background: var(--card-background-color); border-radius: var(--ha-card-border-radius); box-shadow: var(--ha-card-box-shadow); padding: 20px 22px; margin-bottom: 18px; }
+  .card p.hint { margin: 4px 0 14px; }
 
-  main { max-width: 760px; margin: 24px auto; padding: 0 16px 60px; }
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 20px 22px;
-    margin-bottom: 18px;
-  }
-  .card h2 { margin: 0 0 4px; font-size: 16px; }
-  .card p.hint { color: var(--muted); font-size: 13px; margin: 4px 0 14px; }
-
-  .backend-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--border);
-  }
+  .backend-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--divider-color); }
   .backend-row:last-child { border-bottom: none; }
-  .backend-row input[type=checkbox] { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--wa-green); }
+  .backend-row input[type=checkbox] { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--primary-color); }
   .backend-row label.title { font-weight: 600; cursor: pointer; }
-  .backend-row .desc { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .backend-row .desc { color: var(--secondary-text-color); font-size: 13px; margin-top: 2px; }
   .backend-body { width: 100%; }
   .config-panel {
-    margin-top: 10px;
-    padding: 12px 14px;
-    background: #f7f8fa;
-    border: 1px dashed var(--border);
-    border-radius: 8px;
-    display: none;
-    font-size: 13.5px;
+    margin-top: 10px; padding: 12px 14px; background: var(--secondary-background-color);
+    border: 1px dashed var(--divider-color); border-radius: 8px; display: none; font-size: 13.5px;
   }
   .config-panel.open { display: block; }
 
-  label.field { display: block; font-size: 12.5px; color: var(--muted); margin: 8px 0 3px; }
-  input[type=text], input[type=password], input[type=number], select {
-    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
-  }
+  label.field { margin: 8px 0 3px; }
+  input[type=number] { width: 100%; padding: 8px 10px; border: 1px solid var(--divider-color); border-radius: 6px; font-size: 14px; background: var(--primary-background-color); color: var(--primary-text-color); }
   .radio-row { display: flex; gap: 18px; margin: 6px 0 4px; }
   .radio-row label { font-size: 13.5px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
 
-  button {
-    background: var(--wa-green); color: white; border: none; border-radius: 6px;
-    padding: 9px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer; margin-top: 8px;
-  }
-  button.secondary { background: white; color: var(--wa-dark); border: 1px solid var(--border); }
+  button { background: var(--primary-color); color: var(--text-primary-color); border: none; border-radius: 6px; padding: 9px 16px; font-size: 13.5px; font-weight: 500; cursor: pointer; margin-top: 8px; }
+  button.secondary { background: transparent; color: var(--primary-color); border: 1px solid var(--divider-color); }
   button:disabled { opacity: 0.5; cursor: default; }
   button + button { margin-left: 8px; }
 
-  .status-line { font-size: 13px; margin-top: 8px; }
-  .status-ok { color: #1b873f; }
-  .status-bad { color: #c0392b; }
   .save-bar {
-    position: sticky; bottom: 0; background: var(--card); border-top: 1px solid var(--border);
+    position: sticky; bottom: 0; background: var(--card-background-color); border-top: 1px solid var(--divider-color);
     padding: 14px 22px; border-radius: 10px; display: flex; align-items: center; gap: 12px;
   }
   #adminKey { max-width: 320px; }
-  .sheet-list { max-height: 140px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; }
+  .sheet-list { max-height: 140px; overflow-y: auto; border: 1px solid var(--divider-color); border-radius: 6px; margin-top: 8px; }
   .sheet-item { padding: 7px 10px; font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; }
-  .sheet-item:hover { background: #eef7f0; }
-  .sheet-item.selected { background: var(--wa-green); color: white; }
-  code.small { font-size: 12px; background: #eee; padding: 2px 5px; border-radius: 4px; }
-  .app-footer {
-    max-width: 760px; margin: 0 auto; padding: 18px 16px 30px; display: flex; align-items: center;
-    justify-content: center; gap: 10px; color: var(--muted); font-size: 12px;
-  }
-  .app-footer a { color: var(--muted); display: flex; align-items: center; line-height: 0; }
-  .app-footer svg { width: 16px; height: 16px; fill: currentColor; }
-  .user-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .sheet-item:hover { background: var(--secondary-background-color); }
+  .sheet-item.selected { background: var(--primary-color); color: var(--text-primary-color); }
+  code.small { font-size: 12px; background: var(--secondary-background-color); padding: 2px 5px; border-radius: 4px; }
+  .user-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--divider-color); font-size: 13.5px; }
   .user-row:last-child { border-bottom: none; }
   .user-row .who { min-width: 0; }
   .user-row .who .name { font-weight: 600; }
-  .user-row .who .email { color: var(--muted); font-size: 12px; }
+  .user-row .who .email { color: var(--secondary-text-color); font-size: 12px; }
   .user-row .key-wrap { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
   .user-row code.small { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
   .user-row button.secondary { margin: 0; padding: 5px 10px; font-size: 12px; }
 </style>
 </head>
 <body>
-<header>
+<header class="ha-app-header">
   <img src="/favicon.png" alt="" onerror="this.style.display='none'" />
   <h1>WhatsApp Reminder Platform &middot; Settings</h1>
-  <nav><a href="/reminder.html">+ New Reminder</a></nav>
+  <nav><a href="/dashboard.html">Dashboard</a><a href="/reminder.html">Reminders</a><a class="active" href="/settings.html">Settings</a></nav>
 </header>
 
 <main>
@@ -161,7 +101,7 @@
       <input type="checkbox" id="cb-sheets" />
       <div class="backend-body">
         <label class="title" for="cb-sheets">Google Sheet</label>
-        <div class="desc">Connect your Google account directly - no API console, no service account JSON to create.</div>
+        <div class="desc">Connect your Google account directly - no API console, no service account JSON to create. Also powers the recipient contacts search on the reminder form (read-only, same connected account). If you connected before this was added, click Connect again to grant the new contacts permission.</div>
         <div class="config-panel" id="panel-sheets">
           <div id="googleStatus" class="status-line">Not connected.</div>
           <button type="button" id="btnGoogleConnect">Connect with Google</button>
@@ -212,7 +152,7 @@
             <input type="text" id="pgUser" value="reminder_user" />
             <label class="field">Password</label>
             <input type="password" id="pgPassword" />
-            <label class="field"><input type="checkbox" id="pgSsl" style="width:auto; accent-color:var(--wa-green);" /> Use SSL</label>
+            <label class="field"><input type="checkbox" id="pgSsl" style="width:auto; accent-color:var(--primary-color);" /> Use SSL</label>
             <div>
               <button type="button" class="secondary" id="btnPgTest">Test connection</button>
               <button type="button" id="btnPgSaveManual">Save &amp; connect</button>

@@ -5,6 +5,63 @@ here. Home Assistant's Supervisor reads this file directly and shows it on
 the add-on's info page, so keep it in sync with `version:` in `config.yaml`
 - bump one, add an entry here.
 
+## 1.7.1
+
+- **Fixed: `ha_notify_webhook_url` default pointed at https instead of http.**
+  The internal Supervisor proxy only listens on plain HTTP inside the add-on's
+  private docker network - the `https://supervisor/...` default from 1.4.0
+  onward failed every single time with `ECONNREFUSED ...:443`, spamming the
+  log with a full axios stack trace on both `reminder_sent` and the new
+  `session_down` notifications (functionally harmless - the reminder itself
+  still sends/skips correctly either way - but the notification never
+  reached HA). Default is now `http://supervisor/core/api/webhook/reminder_sent`.
+  **Only affects new installs** - Home Assistant add-ons keep whatever value
+  you already have saved in Configuration even after this default changes.
+  If you're already running this add-on, manually change
+  `ha_notify_webhook_url` to `http://supervisor/core/api/webhook/reminder_sent`
+  yourself (Configuration tab) to pick up the fix.
+
+## 1.7.0
+
+- **New: Home Assistant-style theming.** All three pages
+  (`/reminder.html`, `/settings.html`, `/dashboard.html`) now share a common
+  `/public/ha-theme.css` approximating HA's default Material look: a
+  colored top app bar with tab-style navigation (current page underlined),
+  `ha-card`-style rounded/shadowed cards, HA's default primary blue, and
+  automatic light/dark switching via `prefers-color-scheme`. Note: since
+  this app runs inside HA's Ingress panel as a separate embedded document
+  (not a native Lovelace card), it can't literally inherit your live HA
+  theme/CSS variables - this approximates HA's default look rather than
+  mirroring your custom theme exactly. All three pages now cross-link to
+  each other (Dashboard / Reminders / Settings tabs) instead of one-off
+  links.
+
+## 1.6.0
+
+- **New: Google Contacts recipient search**. `/reminder.html`'s recipient
+  field is now a searchable name+number dropdown, backed by the same Google
+  account already connected for Sheets (People API, read-only). New scope
+  `contacts.readonly` added to the OAuth request - if you connected Google
+  before this release, click **Connect with Google** again in Settings to
+  grant it (consent is always re-prompted). New endpoint:
+  `GET /api/integrations/google/contacts?q=...` (any user, cached 5 min
+  server-side, reads up to the first 1,000 contacts). Falls back to plain
+  manual entry if Google isn't connected or the lookup fails. Enable the
+  **People API** in Google Cloud Console alongside Sheets/Drive if you want
+  this (see README's "Google OAuth setup").
+
+## 1.5.0
+
+- **New: Status dashboard (`/dashboard.html`)**. A stats row (total, sent,
+  pending, failed, archived reminders) plus a live connection-status card
+  per WhatsApp number - any number not `connected` gets checked against the
+  gateway immediately and shows its QR code inline to reconnect, no need to
+  reopen `/reminder.html`'s Add-number flow. Same API key/HA auto-login as
+  the other pages. Added a "Dashboard" nav link on `/reminder.html` and
+  `/settings.html`. No new backend endpoints - built entirely on the
+  existing `GET /api/reminders`, `GET /api/numbers` and
+  `POST /api/numbers/:id/refresh`.
+
 ## 1.4.0
 
 - **Fixed: reminders not sending at their scheduled time.** The scheduler was

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WhatsApp Reminder Platform &middot; Dashboard</title>
+<link rel="icon" href="/favicon.png" />
+<link rel="stylesheet" href="/ha-theme.css" />
+<style>
+  /* Page-specific bits not covered by the shared ha-theme.css. */
+  .card { background: var(--card-background-color); border-radius: var(--ha-card-border-radius); box-shadow: var(--ha-card-box-shadow); padding: 20px 22px; margin-bottom: 16px; }
+  .gate { text-align: center; }
+  .gate p { color: var(--secondary-text-color); font-size: 13.5px; }
+  label.field { text-align: left; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; margin-top: 12px; }
+  .stat-tile { background: var(--secondary-background-color); border-radius: 10px; padding: 12px 10px; text-align: center; }
+  .stat-tile .num { font-size: 22px; font-weight: 700; line-height: 1.2; }
+  .stat-tile .lbl { font-size: 11.5px; color: var(--secondary-text-color); margin-top: 2px; }
+  .stat-tile.tone-ok .num { color: var(--success-color); }
+  .stat-tile.tone-bad .num { color: var(--error-color); }
+  .stat-tile.tone-warn .num { color: var(--warning-color); }
+
+  .number-row { border: 1px solid var(--divider-color); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  .number-row .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .number-row .head strong { font-size: 14px; }
+  .number-row .meta { font-size: 12px; color: var(--secondary-text-color); margin-top: 2px; }
+  .number-row .actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .qr-wrap { text-align: center; margin-top: 10px; }
+  .qr-wrap img { max-width: 200px; width: 100%; }
+  .empty-hint { color: var(--secondary-text-color); font-size: 13px; text-align: center; padding: 8px 0; }
+</style>
+</head>
+<body>
+<header class="ha-app-header">
+  <img src="/favicon.png" alt="" onerror="this.style.display='none'" />
+  <h1>Dashboard</h1>
+  <nav>
+    <a class="active" href="/dashboard.html">Dashboard</a>
+    <a href="/reminder.html">Reminders</a>
+    <a href="/settings.html">Settings</a>
+  </nav>
+</header>
+
+<main>
+  <div class="card gate" id="gate">
+    <label class="field" style="text-align:left;">Your API key</label>
+    <input type="password" id="apiKey" placeholder="Your personal API key" />
+    <p>Ask whoever set up this platform for your <code>X-Api-Key</code>. Stored only in this browser.</p>
+  </div>
+
+  <div class="card" id="statsCard" style="display:none;">
+    <h2>Reminders overview</h2>
+    <p class="hint">Across all your connected numbers.</p>
+    <div class="stats-grid" id="statsGrid"></div>
+  </div>
+
+  <div class="card" id="numbersCard" style="display:none;">
+    <h2>Connection status</h2>
+    <p class="hint">Live status of each connected WhatsApp number - scan the QR here if one needs reconnecting.</p>
+    <div id="numberList" style="margin-top:12px;"></div>
+  </div>
+</main>
+
+<footer class="app-footer">
+  <span>Developed by: Ammar Al Farsi</span>
+  <span id="footerVersion"></span>
+  <a href="https://github.com/ammaralfarsi/whatsapp_reminder_project" target="_blank" rel="noopener" title="View on GitHub">
+    <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+  </a>
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const apiKeyInput = $('apiKey');
+apiKeyInput.value = localStorage.getItem('userApiKey') || '';
+
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (apiKeyInput.value) headers['X-Api-Key'] = apiKeyInput.value;
+  const res = await fetch(path, { ...opts, headers });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(body.error || `${res.status} ${res.statusText}`);
+    err.haUserId = body.haUserId;
+    err.haUserName = body.haUserName;
+    throw err;
+  }
+  return body;
+}
+
+function badgeClass(status) {
+  return status === 'connected' ? 'badge-connected'
+    : status === 'qr' ? 'badge-qr'
+    : status === 'error' ? 'badge-error'
+    : status === 'disconnected' ? 'badge-disconnected'
+    : 'badge-pending';
+}
+function statusLabel(status) {
+  return status === 'connected' ? 'Connected'
+    : status === 'qr' ? 'Waiting for QR scan'
+    : status === 'error' ? 'Error'
+    : status === 'disconnected' ? 'Disconnected'
+    : 'Pending';
+}
+
+async function loadStats() {
+  const reminders = await api('/api/reminders');
+  const active = reminders.filter((r) => !r.movedToDone);
+  const counts = {
+    total: reminders.length,
+    sent: reminders.filter((r) => r.status === 'sent').length,
+    pending: active.filter((r) => r.status === 'pending').length,
+    error: reminders.filter((r) => r.status === 'error').length,
+    archived: reminders.filter((r) => r.movedToDone).length,
+  };
+  const tiles = [
+    { label: 'Total', value: counts.total, tone: '' },
+    { label: 'Sent', value: counts.sent, tone: 'tone-ok' },
+    { label: 'Pending', value: counts.pending, tone: '' },
+    { label: 'Failed', value: counts.error, tone: counts.error ? 'tone-bad' : '' },
+    { label: 'Archived', value: counts.archived, tone: '' },
+  ];
+  $('statsCard').style.display = 'block';
+  $('statsGrid').innerHTML = tiles.map((t) => `
+    <div class="stat-tile ${t.tone}">
+      <div class="num">${t.value}</div>
+      <div class="lbl">${t.label}</div>
+    </div>`).join('');
+}
+
+async function loadNumbers() {
+  const numbers = await api('/api/numbers');
+  $('numbersCard').style.display = 'block';
+  $('numberList').innerHTML = numbers.length
+    ? numbers.map((n) => `
+        <div class="number-row" data-id="${n.id}">
+          <div class="head">
+            <strong>${n.label}</strong>
+            <span class="badge ${badgeClass(n.status)}" data-role="badge">${statusLabel(n.status)}</span>
+          </div>
+          <div class="meta">${n.phoneNumber} &middot; ${n.gateway}</div>
+          <div class="actions">
+            <button type="button" class="secondary" data-act="refresh">Refresh</button>
+          </div>
+          <div class="status-line" data-role="status"></div>
+          <div class="qr-wrap" data-role="qrwrap" style="display:none;">
+            <img data-role="qrimg" alt="WhatsApp QR code" />
+            <p class="hint">Scan this in WhatsApp -&gt; Linked devices -&gt; Link a device.</p>
+          </div>
+        </div>`).join('')
+    : `<p class="empty-hint">No numbers connected yet - add one from <a href="/reminder.html">+ New Reminder</a>.</p>`;
+
+  $('numberList').querySelectorAll('.number-row').forEach((row) => {
+    const id = row.dataset.id;
+    row.querySelector('button[data-act=refresh]').addEventListener('click', () => pollNumber(row, id, true));
+    // Numbers not already connected are worth an immediate live check, since
+    // the cached status could be stale (see scheduler.ts's live-status fix) -
+    // and it's the only way anyone sees a QR to reconnect without opening
+    // reminder.html's own Add-number flow again.
+    const badge = row.querySelector('[data-role=badge]');
+    if (!badge.textContent.includes('Connected')) pollNumber(row, id, false);
+  });
+}
+
+async function pollNumber(row, id, manual, attemptsLeft = 10) {
+  const status = row.querySelector('[data-role=status]');
+  const qrWrap = row.querySelector('[data-role=qrwrap]');
+  const qrImg = row.querySelector('[data-role=qrimg]');
+  const badge = row.querySelector('[data-role=badge]');
+  if (manual) { status.textContent = 'Checking...'; status.className = 'status-line'; }
+  try {
+    const result = await api(`/api/numbers/${id}/refresh`, { method: 'POST' });
+    badge.className = `badge ${badgeClass(result.status)}`;
+    badge.textContent = statusLabel(result.status);
+    if (result.status === 'connected') {
+      status.textContent = result.message || 'Connected.';
+      status.className = 'status-line status-ok';
+      qrWrap.style.display = 'none';
+      return;
+    }
+    if (result.status === 'qr' && result.qrImageBase64) {
+      qrImg.src = result.qrImageBase64;
+      qrWrap.style.display = 'block';
+      status.textContent = 'Scan the QR code below to reconnect.';
+      status.className = 'status-line';
+    } else if (result.status === 'error') {
+      status.textContent = result.message || 'Connection error.';
+      status.className = 'status-line status-bad';
+      qrWrap.style.display = 'none';
+      return;
+    } else {
+      status.textContent = result.message || 'Not connected yet.';
+      status.className = 'status-line';
+      qrWrap.style.display = 'none';
+    }
+    if (attemptsLeft > 0) setTimeout(() => pollNumber(row, id, false, attemptsLeft - 1), 4000);
+  } catch (err) {
+    status.textContent = err.message;
+    status.className = 'status-line status-bad';
+  }
+}
+
+async function proceedUnlocked() {
+  $('gate').style.display = 'none';
+  await Promise.all([loadStats(), loadNumbers()]);
+}
+
+async function unlock() {
+  if (!apiKeyInput.value) return;
+  try {
+    await api('/api/me');
+    localStorage.setItem('userApiKey', apiKeyInput.value);
+    await proceedUnlocked();
+  } catch (err) {
+    $('gate').querySelector('p').textContent = 'Invalid API key: ' + err.message;
+  }
+}
+apiKeyInput.addEventListener('change', unlock);
+
+async function tryIngressAutoLogin() {
+  if (apiKeyInput.value) return false;
+  try {
+    await api('/api/me');
+    await proceedUnlocked();
+    return true;
+  } catch (err) {
+    if (err.haUserId) {
+      $('gate').querySelector('p').innerHTML =
+        `Logged into Home Assistant as <b>${err.haUserName || err.haUserId}</b>, but no app user is linked yet. ` +
+        `Ask the admin to link it in Settings -&gt; Users (your HA user ID: <code>${err.haUserId}</code>), ` +
+        `or enter your personal API key above instead.`;
+    }
+    return false;
+  }
+}
+
+tryIngressAutoLogin().then((ok) => { if (!ok) unlock(); });
+
+fetch('/api/version').then((r) => r.json()).then((b) => { $('footerVersion').textContent = '· v' + b.version + ' ·'; }).catch(() => {});
+</script>
+</body>
+</html>

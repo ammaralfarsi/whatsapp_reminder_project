@@ -1,5 +1,5 @@
 name: "WhatsApp Reminder Platform"
-version: "1.4.0"
+version: "1.7.1"
 slug: "whatsapp_reminder_platform"
 description: "Multi-user WhatsApp reminders via WAHA, with optional Postgres/Sheets storage."
 url: "https://github.com/ammaralfarsi/whatsapp_reminder_project"
@@ -82,7 +82,10 @@ options:
 
   waha_base_url: ""
   waha_api_key: ""
-  ha_notify_webhook_url: "https://supervisor/core/api/webhook/reminder_sent"
+  # Plain http, not https - the internal Supervisor proxy (172.30.32.2 on the
+  # add-on's private docker network) only listens on port 80 there. https
+  # here fails with ECONNREFUSED on :443 (this was wrong before 1.7.1).
+  ha_notify_webhook_url: "http://supervisor/core/api/webhook/reminder_sent"
   scheduler_cron: "*/1 * * * *"
   default_footer_template: "\n\n~Auto Reminder~      ~تذكير تلقائي~"
 schema:

@@ -1,0 +1,147 @@
+/*
+ * Shared "look like a Home Assistant panel" theme for reminder.html,
+ * settings.html and dashboard.html.
+ *
+ * Important limitation: this app is embedded in HA's Ingress panel as a
+ * cross-origin-style iframe (a separate document), so it can't actually
+ * inherit the user's live HA theme/CSS custom properties the way a native
+ * Lovelace card can - there's no bridge for that. What this file does
+ * instead is approximate HA's *default* Material look (its default light
+ * theme's primary blue, Roboto type, `ha-card`-style rounded/shadowed
+ * cards, a colored top app bar) and auto-switch to a dark variant via
+ * `prefers-color-scheme`, which tracks the OS/browser setting - close
+ * enough to "feels like part of HA" without needing a real bridge.
+ */
+:root {
+  --primary-color: #03a9f4;
+  --accent-color: #ff9800;
+  --text-primary-color: #ffffff;       /* text sitting on --primary-color */
+  --primary-text-color: #212121;
+  --secondary-text-color: #727272;
+  --disabled-text-color: #bdbdbd;
+  --divider-color: rgba(0, 0, 0, 0.12);
+  --card-background-color: #ffffff;
+  --primary-background-color: #fafafa;
+  --secondary-background-color: #f0f0f0;
+  --error-color: #db4437;
+  --warning-color: #ffa600;
+  --success-color: #43a047;
+  --ha-card-border-radius: 12px;
+  --ha-card-box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+  --wa-green: #25d366; /* kept as an accent only - primary action buttons */
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-text-color: #e1e1e1;
+    --secondary-text-color: #9b9b9b;
+    --disabled-text-color: #6f6f6f;
+    --divider-color: rgba(255, 255, 255, 0.12);
+    --card-background-color: #1c1c1c;
+    --primary-background-color: #111111;
+    --secondary-background-color: #1a1a1a;
+    --ha-card-box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.4), 0 1px 5px 0 rgba(0, 0, 0, 0.35), 0 3px 1px -2px rgba(0, 0, 0, 0.5);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  font-family: "Roboto", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  min-height: 100vh;
+}
+
+/* Top app bar, HA panel-style: colored bar, title, right-aligned tabs. */
+.ha-app-header {
+  background: var(--primary-color);
+  color: var(--text-primary-color);
+  padding: 0 16px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--ha-card-box-shadow);
+}
+.ha-app-header img { width: 28px; height: 28px; border-radius: 6px; background: #fff; padding: 2px; }
+.ha-app-header h1 { font-size: 17px; margin: 0; font-weight: 500; letter-spacing: .01em; }
+.ha-app-header nav { margin-left: auto; display: flex; gap: 4px; height: 100%; }
+.ha-app-header nav a {
+  color: var(--text-primary-color);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  opacity: .85;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 3px solid transparent;
+}
+.ha-app-header nav a:hover { opacity: 1; }
+.ha-app-header nav a.active { opacity: 1; border-bottom-color: var(--text-primary-color); }
+
+main { max-width: 560px; margin: 24px auto; padding: 0 16px 60px; }
+
+/* HA's `ha-card`: rounded, subtle shadow, no border. */
+.ha-card {
+  background: var(--card-background-color);
+  border-radius: var(--ha-card-border-radius);
+  box-shadow: var(--ha-card-box-shadow);
+  padding: 20px 22px;
+  margin-bottom: 16px;
+  color: var(--primary-text-color);
+}
+.ha-card h2 { font-size: 15px; margin: 0 0 4px; font-weight: 500; }
+.ha-card .hint, .hint { color: var(--secondary-text-color); font-size: 12.5px; margin: 4px 0 0; }
+
+label.field { display: block; font-size: 12.5px; color: var(--secondary-text-color); margin: 12px 0 4px; font-weight: 500; }
+input[type=text], input[type=password], input[type=datetime-local], select, textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--divider-color);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+}
+textarea { resize: vertical; min-height: 70px; }
+
+button.primary {
+  background: var(--primary-color);
+  color: var(--text-primary-color);
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+button.primary:disabled { opacity: .5; cursor: default; }
+button.secondary {
+  background: transparent;
+  color: var(--primary-color);
+  border: 1px solid var(--divider-color);
+  border-radius: 8px;
+  padding: 7px 13px;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.status-line { font-size: 13px; margin-top: 8px; }
+.status-ok { color: var(--success-color); }
+.status-bad { color: var(--error-color); }
+
+.badge { display: inline-block; font-size: 11px; padding: 2px 9px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+.badge-connected, .badge-sent { background: rgba(67, 160, 71, 0.15); color: var(--success-color); }
+.badge-qr, .badge-warn { background: rgba(255, 166, 0, 0.15); color: var(--warning-color); }
+.badge-error, .badge-disconnected { background: rgba(219, 68, 55, 0.15); color: var(--error-color); }
+.badge-pending { background: var(--divider-color); color: var(--secondary-text-color); }
+
+.app-footer {
+  max-width: 560px; margin: 0 auto; padding: 8px 16px 30px; display: flex; align-items: center;
+  justify-content: center; gap: 10px; color: var(--secondary-text-color); font-size: 12px;
+}
+.app-footer a { color: var(--secondary-text-color); display: flex; align-items: center; line-height: 0; }
+.app-footer svg { width: 16px; height: 16px; fill: currentColor; }

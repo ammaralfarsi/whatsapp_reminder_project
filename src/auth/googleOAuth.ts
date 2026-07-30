@@ -44,10 +44,17 @@ export function getOAuthClient() {
 // spreadsheets: read/write the sheets this app uses.
 // drive.file: only files the *app itself* created or the user explicitly
 // opened with it - not blanket read access to the person's whole Drive.
+// contacts.readonly: powers the recipient searchable name+number dropdown
+// (GET /api/integrations/google/contacts) - read-only, People API. Like
+// `spreadsheets`, this is a "sensitive" (not restricted) scope: Google
+// requires standard OAuth verification of the project before *other*
+// people can use it (not the expensive CASA security assessment reserved
+// for restricted scopes) - see README's Google OAuth setup section.
 export const SHEETS_OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets",
   "https://www.googleapis.com/auth/drive.file",
   "https://www.googleapis.com/auth/userinfo.email",
+  "https://www.googleapis.com/auth/contacts.readonly",
 ];
 
 export function buildGoogleAuthUrl(state: string): string {
