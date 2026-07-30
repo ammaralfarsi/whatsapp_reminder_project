@@ -41,16 +41,12 @@ export const config = {
     autoPort: Number(process.env.POSTGRES_AUTO_PORT ?? 5433),
   },
 
-  sheets: {
-    keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE ?? "",
-    spreadsheetId: process.env.GOOGLE_SHEETS_SPREADSHEET_ID ?? "",
-  },
-
-  // OAuth client for the "Connect with Google" button (src/auth/googleOAuth.ts)
-  // - a redirect-based sign-in instead of asking the user to create a
-  // service account and paste a JSON key. This is a normal OAuth "Web
-  // application" client created once in Google Cloud Console; end users
-  // never touch the console themselves, they just click Connect.
+  // Google Sheets connects only through OAuth (the "Connect with Google"
+  // button, src/auth/googleOAuth.ts) - there's no service-account-JSON or
+  // hand-set-spreadsheet-ID config path. This is a normal OAuth "Web
+  // application" client created once in Google Cloud Console by whoever
+  // deploys the app; end users never touch that console themselves, they
+  // just click Connect and pick/create a spreadsheet from Settings.
   googleOAuth: {
     clientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
     clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",

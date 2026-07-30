@@ -27,10 +27,12 @@ function defaults(): AppSettings {
       databaseUrl: config.postgres.databaseUrl,
       ssl: config.postgres.ssl,
     },
+    // Google Sheets is OAuth-only - nothing to seed from env vars here.
+    // "spreadsheetId" and "oauth" get filled in once someone clicks
+    // "Connect with Google" and picks/creates a spreadsheet in Settings.
     sheets: {
-      spreadsheetId: config.sheets.spreadsheetId,
-      authMode: "service_account",
-      serviceAccountKeyFile: config.sheets.keyFile,
+      spreadsheetId: "",
+      authMode: "oauth",
     },
     haLocal: {
       filePath:

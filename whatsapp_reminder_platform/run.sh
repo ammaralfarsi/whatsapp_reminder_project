@@ -7,8 +7,9 @@ export PORT="8080"
 # "postgres+sheets+ha_local"-style combo values (see config.yaml's schema)
 # become the comma-separated list src/config.ts expects.
 export STORAGE_BACKENDS=$(bashio::config 'storage_backends' | sed 's/+/,/g')
-export GOOGLE_SHEETS_SPREADSHEET_ID=$(bashio::config 'google_sheets_spreadsheet_id')
-export GOOGLE_SERVICE_ACCOUNT_KEY_FILE="/config/addon_config/service-account.json"
+# Google Sheets is OAuth-only - "Connect with Google" in Settings, no
+# service account JSON or spreadsheet ID to set here. Which spreadsheet to
+# use is picked from Settings after connecting.
 export GOOGLE_OAUTH_CLIENT_ID=$(bashio::config 'google_oauth_client_id')
 export GOOGLE_OAUTH_CLIENT_SECRET=$(bashio::config 'google_oauth_client_secret')
 export WAHA_BASE_URL=$(bashio::config 'waha_base_url')

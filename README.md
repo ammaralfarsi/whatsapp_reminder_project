@@ -101,11 +101,12 @@ restart - `src/storage/LiveStorage.ts` is what every route/the scheduler
 actually holds a reference to, so swapping the underlying adapter(s) takes
 effect on the very next request.
 
-Everything above is also settable via env vars / the HA add-on's
-Configuration tab for a fully scripted first boot (`STORAGE_BACKENDS`,
-`POSTGRES_MODE` + `POSTGRES_AUTO_*` / `database_url` fields,
-`GOOGLE_SHEETS_SPREADSHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` - see
-`.env.example`); those are just the *bootstrap defaults* though - once the
+Postgres is also settable via env vars / the HA add-on's Configuration tab
+for a fully scripted first boot (`STORAGE_BACKENDS`, `POSTGRES_MODE` +
+`POSTGRES_AUTO_*` / `database_url` fields - see `.env.example`); Google
+Sheets has no equivalent - it's "Connect with Google" or nothing, by
+design, so there's no spreadsheet ID or service account file to script in.
+Postgres env vars are just the *bootstrap defaults* though - once the
 app has booted once, Settings (persisted to `DATA_DIR/settings.json`) is
 what's actually in charge. If Postgres is enabled with `postgres_mode: auto`
 and no connection yet, the app tries to provision one itself at boot too -
@@ -220,7 +221,10 @@ that prebuilt image, so installing is just a `docker pull`, not a build.
 
 Every time you bump `version:` in `whatsapp_reminder_platform/config.yaml`
 and push, CI publishes a new tag and HA will offer an update - there's no
-separate "rebuild" step to remember.
+separate "rebuild" step to remember. **Every change that ships bumps this
+version and adds an entry to `whatsapp_reminder_platform/CHANGELOG.md`**
+(Supervisor reads that file and shows it on the add-on's info page), so
+anyone updating can see what changed without digging through commits.
 
 If the repository still won't add: repo must be public (or added with a
 token HA can use), `repository.yaml` must sit at the repo root, and the
@@ -319,8 +323,8 @@ once you've decided which storage backend you're standardizing on.
   - they were pasted in plaintext into shared code.
 - Per-user `apiKey`s are generated with `crypto.randomBytes(24)` and should be
   treated like passwords - send over HTTPS only.
-- The Google service account key and any HA long-lived tokens should live in
-  `secrets/` / the HA add-on's `addon_config` mount, never committed to git.
+- Any HA long-lived tokens should live in `secrets/` / the HA add-on's
+  `addon_config` mount, never committed to git.
 - `DATA_DIR/settings.json` holds Postgres credentials and the Google OAuth
   refresh token once configured - treat it like `secrets/` (it's already
   gitignored, and lives under the HA add-on's `addon_config` mount too).

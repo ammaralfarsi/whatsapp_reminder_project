@@ -1,5 +1,5 @@
 name: "WhatsApp Reminder Platform"
-version: "1.0.1"
+version: "1.1.1"
 slug: "whatsapp_reminder_platform"
 description: "Multi-user WhatsApp reminders via WAHA, with optional Postgres/Sheets storage."
 url: "https://github.com/ammaralfarsi/whatsapp_reminder_project"
@@ -52,10 +52,10 @@ options:
   # Overrides every postgres_* field above when set.
   database_url: ""
 
-  google_sheets_spreadsheet_id: ""
   # Powers the "Connect with Google" button in Settings - see .env.example
-  # for how to create this OAuth client. Leave blank to use a hand-created
-  # service account (GOOGLE_SERVICE_ACCOUNT_KEY_FILE) instead.
+  # for how to create this OAuth client. This is the only way to connect
+  # Google Sheets; which spreadsheet to use is picked from Settings after
+  # connecting, not set here.
   google_oauth_client_id: ""
   google_oauth_client_secret: ""
 
@@ -85,7 +85,6 @@ schema:
   postgres_ssl: "bool?"
   database_url: "str?"
 
-  google_sheets_spreadsheet_id: "str?"
   google_oauth_client_id: "str?"
   google_oauth_client_secret: "password?"
   waha_base_url: "url"
