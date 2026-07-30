@@ -4,6 +4,10 @@
 # app reads (see .env.example), then starts the server.
 
 export PORT="8080"
+# Gates the Settings page (storage backend selection, Postgres setup,
+# "Connect with Google") - without this set, nobody can use those admin
+# actions, so it's a required Configuration field (see config.yaml).
+export ADMIN_API_KEYS=$(bashio::config 'admin_api_keys')
 # "postgres+sheets+ha_local"-style combo values (see config.yaml's schema)
 # become the comma-separated list src/config.ts expects.
 export STORAGE_BACKENDS=$(bashio::config 'storage_backends' | sed 's/+/,/g')
@@ -38,11 +42,13 @@ export PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-http://localhost:8080}"
 # --- Postgres: fields instead of a hand-built URL ---
 # Priority: an explicit `database_url` (advanced override) always wins;
 # otherwise Manual mode builds one from the host/port/db/user/password
-# fields; otherwise (Auto, or Manual left blank) DATABASE_URL stays empty
-# and the app's own boot-time auto-provision step (see src/index.ts) takes
-# over, using the POSTGRES_AUTO_* fields below as the initial details for
-# the database it creates (docker_api: true in config.yaml is what makes
-# that actually able to create a container from inside the add-on).
+# fields; otherwise (Auto, or Manual left blank) DATABASE_URL stays empty.
+# Note: "Auto" (self-provisioning a postgres:16-alpine container) does NOT
+# work for this add-on - Home Assistant's docker_api option only grants
+# read-only Docker API access, so container creation is always refused here.
+# Auto only works in the plain Docker/docker-compose deployment. For this
+# add-on, use Manual mode with a Postgres you already have (your own server,
+# a managed one, or the official "PostgreSQL" add-on).
 POSTGRES_MODE=$(bashio::config 'postgres_mode')
 export POSTGRES_MODE="${POSTGRES_MODE:-manual}"
 DATABASE_URL_OVERRIDE=$(bashio::config 'database_url')

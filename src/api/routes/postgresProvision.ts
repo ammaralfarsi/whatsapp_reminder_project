@@ -18,10 +18,17 @@ import { reloadStorage } from "../../storage";
  *    postgres:16-alpine container ourselves via the Docker socket
  *    (dockerode), attaching it to whichever Docker network this app's own
  *    container is already on so it's reachable by container name - no port
- *    mapping guesswork. If no Docker socket is reachable (Manual mode is
- *    the fallback, or the add-on needs `docker_api: true` in config.yaml),
- *    we still generate the credentials and hand back a ready-to-run
- *    docker-compose service block plus the resulting connection string.
+ *    mapping guesswork. This only works for the plain Docker/docker-compose
+ *    deployment, where the real /var/run/docker.sock is bind-mounted in with
+ *    read-write access. It does NOT work for the Home Assistant add-on: HA's
+ *    `docker_api` option (see config.yaml) only grants *read-only* access to
+ *    a Supervisor-proxied Docker API, by Home Assistant's own design - so
+ *    container creation is refused there no matter what. If no writable
+ *    Docker socket is reachable, we still generate the credentials and hand
+ *    back a ready-to-run docker-compose service block plus the resulting
+ *    connection string; for the HA add-on, the right move is Manual mode
+ *    pointed at a Postgres you already have (your own server, a managed
+ *    one, or the official "PostgreSQL" add-on).
  *  - "manual": point at a Postgres that already exists (your own server, a
  *    managed one, the official HA "PostgreSQL" add-on) - fill in
  *    host/port/db/user/password, we test the connection before saving.
@@ -182,6 +189,11 @@ export async function provisionPostgresAuto(opts: ProvisionOptions = {}): Promis
   const hostPort = opts.port || DEFAULT_HOST_PORT;
   const composeSnippet = buildComposeSnippet(database, user, hostPort);
 
+  const isHaAddon = !!process.env.SUPERVISOR_TOKEN;
+  const notWritableNote = isHaAddon
+    ? "This Home Assistant add-on can't create a Postgres container for you: the `docker_api` option only grants read-only access to the Docker API (that's how Home Assistant designed it, not a bug here) - so container creation is always refused, regardless of config. Please use Manual mode instead, pointing at a Postgres you already have, or install the official \"PostgreSQL\" add-on and point Manual mode at that."
+    : "No writable Docker socket reachable from this app. Bind-mount /var/run/docker.sock into this app's container (see the commented-out line in docker-compose.yml) and make sure the user this runs as can access it. Until then, add the block below to your docker-compose.yml and run `docker compose up -d`, or switch to Manual mode.";
+
   let docker: any;
   try {
     const { default: Dockerode } = await import("dockerode");
@@ -194,8 +206,7 @@ export async function provisionPostgresAuto(opts: ProvisionOptions = {}): Promis
       password: opts.password || crypto.randomBytes(18).toString("base64url"),
       databaseUrl: "",
       composeSnippet,
-      note:
-        "No Docker socket reachable from this app. For plain Docker/docker-compose, bind-mount /var/run/docker.sock into this app's container. For the Home Assistant add-on, set `docker_api: true` in config.yaml (already on by default) and make sure the add-on was reinstalled/rebuilt after that changed. Until then, add the block below to your docker-compose.yml and run `docker compose up -d`, or switch to Manual mode.",
+      note: notWritableNote,
     };
   }
 
@@ -240,16 +251,33 @@ export async function provisionPostgresAuto(opts: ProvisionOptions = {}): Promis
     databaseUrl = `postgres://${user}:${password}@localhost:${hostPort}/${database}`;
   }
 
-  await pullImage(docker, "postgres:16-alpine");
-  const container = await docker.createContainer({
-    name: AUTO_CONTAINER_NAME,
-    Image: "postgres:16-alpine",
-    Env: [`POSTGRES_USER=${user}`, `POSTGRES_PASSWORD=${password}`, `POSTGRES_DB=${database}`],
-    ExposedPorts: { "5432/tcp": {} },
-    HostConfig: hostConfig,
-    ...(network ? { NetworkingConfig: { EndpointsConfig: { [network]: {} } } } : {}),
-  });
-  await container.start();
+  try {
+    await pullImage(docker, "postgres:16-alpine");
+    const container = await docker.createContainer({
+      name: AUTO_CONTAINER_NAME,
+      Image: "postgres:16-alpine",
+      Env: [`POSTGRES_USER=${user}`, `POSTGRES_PASSWORD=${password}`, `POSTGRES_DB=${database}`],
+      ExposedPorts: { "5432/tcp": {} },
+      HostConfig: hostConfig,
+      ...(network ? { NetworkingConfig: { EndpointsConfig: { [network]: {} } } } : {}),
+    });
+    await container.start();
+  } catch (err: any) {
+    // The socket answered `ping` (read access works) but a write call
+    // (pull/create/start) was refused - exactly what happens on Home
+    // Assistant's Supervisor-proxied, read-only `docker_api` socket. Degrade
+    // to the same "can't do this here" result instead of a raw 500, so the
+    // caller (route handler or boot-time hook) can show useful guidance.
+    const permissionDenied = err?.statusCode === 403 || /permission denied|EACCES/i.test(err?.message ?? "");
+    return {
+      started: false,
+      containerName: AUTO_CONTAINER_NAME,
+      password,
+      databaseUrl: "",
+      composeSnippet,
+      note: permissionDenied ? notWritableNote : `Failed to create the Postgres container: ${err?.message ?? err}`,
+    };
+  }
 
   // Give Postgres a moment to accept connections before migrations run.
   await new Promise((resolve) => setTimeout(resolve, 3000));

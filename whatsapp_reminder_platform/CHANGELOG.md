@@ -5,6 +5,34 @@ here. Home Assistant's Supervisor reads this file directly and shows it on
 the add-on's info page, so keep it in sync with `version:` in `config.yaml`
 - bump one, add an entry here.
 
+## 1.1.4
+
+- Fixed a real lockout bug: this add-on never exposed `ADMIN_API_KEYS` as a
+  Configuration option, so `requireAdmin` (Settings page, Postgres setup,
+  "Connect with Google") had nothing to check against and rejected every
+  request - there was no key you could enter that would ever work. Added
+  `admin_api_keys` as a required Configuration field (mirrors `waha_api_key`),
+  wired through `run.sh`. **After updating, set this field to your own value
+  and use it in Settings** (paste it in the box at the top of the page -
+  it's stored in your browser only, sent as `X-Api-Key`).
+
+## 1.1.3
+
+- Corrected a wrong assumption from 1.1.0: Home Assistant's `docker_api`
+  option only ever grants **read-only** access to the Docker API (this is
+  documented Supervisor behavior, not something this add-on can work
+  around), so Postgres "Auto" mode can never create a container from
+  inside this add-on, no matter how it's configured. Turned `docker_api`
+  back off in `config.yaml` (it wasn't helping and only cost the add-on its
+  "protected" status), and reworked the Auto-provisioning code so a
+  permission-denied response degrades to clear guidance ("use Manual mode
+  with a Postgres you already have, e.g. the official PostgreSQL add-on")
+  instead of a confusing error. Auto mode is unaffected and still works
+  normally in the plain Docker/docker-compose deployment, where a real,
+  writable `docker.sock` can be bind-mounted in.
+- Updated README/config.yaml/run.sh docs to stop suggesting Auto works on
+  the HA add-on.
+
 ## 1.1.2
 
 - Fixed the CI build failure (`npm run build` exit code 2): `package.json`

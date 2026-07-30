@@ -86,12 +86,16 @@ backends; each one's own config panel expands underneath:
     username, password and port, then click **Create Postgres container** -
     it generates/uses those details and starts a `postgres:16-alpine`
     container for you via the Docker socket (see the commented-out
-    `docker.sock` mount in `docker-compose.yml`, or `docker_api: true` in
-    the HA add-on's `config.yaml`, already on by default). Without a
-    reachable socket, you get a docker-compose block to paste in instead.
-  - **Manual**: fill in host/port/db/user/password for a Postgres you
-    already have (your own server, a managed one, the official HA
-    "PostgreSQL" add-on) - **Test connection** before saving.
+    `docker.sock` mount in `docker-compose.yml`). **This only works for the
+    plain Docker/docker-compose deployment.** It does *not* work for the
+    Home Assistant add-on: HA's `docker_api` option only ever grants
+    *read-only* Docker API access, so the add-on can never create a
+    container this way no matter how it's configured. Without a writable
+    socket, you get a docker-compose block to paste in instead.
+  - **Manual (use this for the HA add-on)**: fill in host/port/db/user/
+    password for a Postgres you already have (your own server, a managed
+    one, or the official HA "PostgreSQL" add-on) - **Test connection**
+    before saving.
 
 Check multiple boxes and **Save storage selection** to run more than one at
 once: writes fan out to every enabled backend, the first one you checked is
@@ -208,10 +212,15 @@ that prebuilt image, so installing is just a `docker pull`, not a build.
    building, so it should be fast and light even on a Pi.
 5. Fill in the add-on's **Configuration** tab: storage backend(s), WAHA
    URL/key, and - if you're enabling Postgres from here rather than from
-   Settings afterward - either `postgres_mode: auto` (creates one for you;
-   needs `docker_api: true`, on by default) or `manual` with the
-   host/port/database/user/password fields. Sheets can be left blank here
-   and connected later via "Connect with Google" in Settings instead.
+   Settings afterward - `postgres_mode: manual` with the
+   host/port/database/user/password fields for a Postgres you already have
+   (your own server, a managed one, or the official HA "PostgreSQL"
+   add-on). `postgres_mode: auto` exists in the schema but can't work for
+   this add-on - Home Assistant's `docker_api` only grants read-only Docker
+   API access, so container creation is always refused here; Auto only
+   works in the plain Docker/docker-compose deployment. Sheets can be left
+   blank here and connected later via "Connect with Google" in Settings
+   instead.
 6. Start the add-on. It listens on port 8080 and exposes an Ingress panel -
    open it and finish anything left in **Settings** (`/settings.html`).
 7. Wire up your dashboard using `whatsapp_reminder_platform/dashboard-example.yaml`,
