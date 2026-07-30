@@ -5,6 +5,17 @@
 
 export PORT="8086"
 
+# This container defaults to UTC like any other Docker container - it does
+# NOT automatically pick up Home Assistant's own configured time zone. Only
+# matters for reminders created without an explicit UTC time (the HA
+# dashboard card, or the old Flutter app's date format) - /reminder.html
+# always sends an unambiguous UTC instant regardless. Match HA's Settings ->
+# System -> General -> Time zone here if you use the dashboard card.
+TIMEZONE=$(bashio::config 'timezone')
+if [ -n "$TIMEZONE" ]; then
+  export TZ="$TIMEZONE"
+fi
+
 # Persist settings.json (Settings page: storage backend selection, Google
 # OAuth tokens, Postgres config), the ha_local JSON store, and the
 # auto-generated admin key below under the add-on's own persistent, editable

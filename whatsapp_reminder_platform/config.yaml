@@ -1,5 +1,5 @@
 name: "WhatsApp Reminder Platform"
-version: "1.3.0"
+version: "1.4.0"
 slug: "whatsapp_reminder_platform"
 description: "Multi-user WhatsApp reminders via WAHA, with optional Postgres/Sheets storage."
 url: "https://github.com/ammaralfarsi/whatsapp_reminder_project"
@@ -37,6 +37,15 @@ ports_description:
 # (your own server, a managed one, or the official "PostgreSQL" add-on).
 docker_api: false
 options:
+  # IANA name (e.g. "Asia/Muscat"), matching Home Assistant's own Settings ->
+  # System -> General -> Time zone. This container defaults to UTC like any
+  # other Docker container - it does NOT automatically inherit HA's timezone.
+  # Only matters for reminders created without an explicit UTC time (the HA
+  # dashboard card's input_datetime, or the old Flutter app's date format);
+  # `/reminder.html` always sends an unambiguous UTC instant regardless of
+  # this setting. Defaults to Asia/Muscat for this deployment - change to
+  # your own zone, or blank it out to keep UTC.
+  timezone: "Asia/Muscat"
   # Comma-separated admin key(s) - paste one of these into the Settings page
   # (/settings.html, top of the page) to unlock storage backend selection,
   # Postgres setup and "Connect with Google". Leave blank and one is
@@ -77,6 +86,7 @@ options:
   scheduler_cron: "*/1 * * * *"
   default_footer_template: "\n\n~Auto Reminder~      ~تذكير تلقائي~"
 schema:
+  timezone: "str?"
   admin_api_keys: "str?"
   # Bootstrap-only default for first boot; change which backend(s) are
   # active any time afterwards from the add-on's web UI (Settings, reached

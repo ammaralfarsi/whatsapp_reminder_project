@@ -358,6 +358,23 @@ document.querySelectorAll('input[name=recurrence]').forEach((r) => {
   });
 });
 
+// datetime-local inputs give/expect a plain "YYYY-MM-DDTHH:mm" with no
+// timezone - the browser treats that as *local* wall-clock time. The server
+// stores/expects a real, unambiguous instant (ISO with "Z"). Converting here
+// means a reminder set for "2:00 PM" fires at 2:00 PM in your timezone
+// regardless of what timezone the server container happens to run in -
+// previously the raw local-looking string was sent as-is and the server
+// parsed it as UTC, which could be hours off from what you actually picked.
+function localInputToIso(value) {
+  return value ? new Date(value).toISOString() : '';
+}
+function isoToLocalInput(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 let editingReminderId = null;
 
 function startEdit(r) {
@@ -365,7 +382,7 @@ function startEdit(r) {
   $('numberId').value = r.numberId;
   $('recipient').value = r.recipient;
   $('message').value = r.message;
-  $('triggerDateTime').value = r.triggerAt ? r.triggerAt.slice(0, 16) : '';
+  $('triggerDateTime').value = isoToLocalInput(r.triggerAt);
   document.querySelector(`input[name=recurrence][value="${r.recurring ? 'Yes' : 'No'}"]`).checked = true;
   $('frequencyRow').style.display = r.recurring ? 'block' : 'none';
   if (r.frequency && r.frequency !== 'none') $('frequency').value = r.frequency;
@@ -392,7 +409,7 @@ $('form').addEventListener('submit', async (e) => {
     numberId: $('numberId').value,
     recipient: $('recipient').value,
     message: $('message').value,
-    triggerDateTime: $('triggerDateTime').value,
+    triggerDateTime: localInputToIso($('triggerDateTime').value),
     recurrence: document.querySelector('input[name=recurrence]:checked').value,
     frequency: $('frequency').value,
   };

@@ -333,6 +333,25 @@ automatically (Supervisor's Ingress proxy sends `X-Remote-User-Id` - see
 `requireUser()` in `src/auth/apiKeyAuth.ts`). Opening the app any other way
 (direct port, external URL) still needs the personal API key as before.
 
+## Timezones and reminder alerts
+
+`/reminder.html`'s own form always sends an unambiguous UTC instant, so it's
+correct regardless of server timezone. Two other input paths aren't
+timezone-aware on their own: the Lovelace dashboard card's
+`input_datetime`, and the legacy Flutter app's date format. For those, set
+the `timezone` add-on option (or `TZ` env var in plain Docker/`.env`) to
+your IANA zone - this deployment defaults to `Asia/Muscat`; change it or
+blank it out (add-on option) for UTC.
+
+If a reminder is due but its WhatsApp number's session isn't actually
+connected (dropped, never finished pairing, etc.), the scheduler now checks
+the gateway's *live* status instead of trusting a possibly-stale cached one,
+skips that reminder, and - if `ha_notify_webhook_url`/`HA_NOTIFY_WEBHOOK_URL`
+is set - posts `{ event: "session_down", numberLabel, status, message }` to
+it (debounced to once per 30 minutes per number) so a disconnected session
+doesn't fail silently. Successful sends post `{ event: "reminder_sent", ... }`
+to the same webhook as before.
+
 ## Migrating from the old spreadsheet
 
 Your existing `Reminders` tab (S/N, Timestamp, Date of Reminder, Reminder To,

@@ -5,6 +5,36 @@ here. Home Assistant's Supervisor reads this file directly and shows it on
 the add-on's info page, so keep it in sync with `version:` in `config.yaml`
 - bump one, add an entry here.
 
+## 1.4.0
+
+- **Fixed: reminders not sending at their scheduled time.** The scheduler was
+  gating sends on a cached `status` field on the number that's only ever
+  refreshed when someone has the QR/status page open - if a session
+  connected while nobody was watching (tab closed right after scanning, a
+  refresh, etc.), that field could get stuck on `qr`/`pending` forever, even
+  though the session was really connected, silently blocking every reminder
+  on that number. The scheduler now checks the gateway's *live* status
+  before sending and self-corrects the stored value if it drifted.
+- **Fixed: timezone-ambiguous reminder times.** `datetime-local` inputs carry
+  no timezone marker, so they were being interpreted using the server's own
+  timezone (UTC by default in Docker) rather than yours. `/reminder.html`'s
+  create/edit form now always converts to/from an explicit UTC instant
+  client-side, so it's correct regardless of server timezone. For the two
+  paths that still send timezone-naive values - the Lovelace dashboard
+  card's `input_datetime`, and the legacy Flutter app's date format - added
+  a `timezone` add-on option / `TZ` env var (defaults to `Asia/Muscat` for
+  this deployment; change or blank it out for UTC). The plain-Docker
+  `Dockerfile` now installs `tzdata` so named zones resolve correctly there
+  too.
+- **New: notified when a session is down.** If a reminder is due but its
+  WhatsApp number isn't actually connected, the scheduler now posts
+  `{ event: "session_down", numberLabel, status, message }` to
+  `ha_notify_webhook_url`/`HA_NOTIFY_WEBHOOK_URL` (debounced to once per 30
+  minutes per number) instead of failing silently. Successful sends now post
+  `{ event: "reminder_sent", ... }` to the same webhook (was previously
+  unlabeled `{ recipient, message }` - existing automations keyed off those
+  two fields keep working, `event` is additive).
+
 ## 1.3.0
 
 - **Reminders can now be managed, not just created**: `/reminder.html` shows
