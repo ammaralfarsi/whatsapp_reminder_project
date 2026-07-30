@@ -20,7 +20,10 @@ function defaults(): AppSettings {
   return {
     enabledBackends: envBackends.length ? envBackends : ["ha_local"],
     postgres: {
-      mode: config.postgres.databaseUrl ? "manual" : "auto",
+      // An explicit DATABASE_URL always implies "manual" (it IS the manual
+      // connection), regardless of POSTGRES_MODE - only actually enter
+      // "auto" when there's nothing already configured to use.
+      mode: config.postgres.databaseUrl ? "manual" : config.postgres.mode,
       databaseUrl: config.postgres.databaseUrl,
       ssl: config.postgres.ssl,
     },

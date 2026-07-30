@@ -30,6 +30,7 @@ COPY package.json ./
 RUN npm install --omit=dev
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
+COPY public ./public
 COPY whatsapp_reminder_platform/run.sh /run.sh
 RUN chmod a+x /run.sh
 

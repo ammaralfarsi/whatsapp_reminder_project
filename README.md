@@ -12,9 +12,12 @@ and storage. Runs as a plain Docker container or as a Home Assistant add-on.
 | One hardcoded WAHA session (`"default"`) | One session per user per phone number, auto-created |
 | One shared Google Sheet, no user concept | Users table; every row scoped by `user_id` |
 | Hardcoded footer text in code | Per-user, editable footer template (`PUT /api/templates`) |
-| Sheets only | Sheets and/or Postgres, togglable, can run both at once |
+| Sheets only | Sheets, Postgres and/or a local JSON store, any combination, togglable live from a Settings page |
 | Apps Script triggers | `node-cron` scheduler inside the app (Docker or HA add-on) |
 | Single WAHA gateway | Gateway interface: WAHA (fully implemented) + ha-whatsapp (adapter stub, see caveats below) |
+| Google service account JSON | "Connect with Google" - OAuth redirect, no API console work |
+| Hand-built Postgres connection string | Separate host/port/database/user/password fields, or one-click "Auto" container creation |
+| Old Apps Script web form | `/reminder.html` - a small standalone page to add a reminder from any browser, plus the original Lovelace card |
 
 ## Architecture
 
@@ -62,22 +65,69 @@ or API routes.
 - **FooterTemplate** - per-user; the text appended after the reminder body.
   Supports `{{message}}` and any extra vars you pass in.
 
-## Storage: Sheets, Postgres, or both
+## Storage: Home Assistant local, Google Sheet, Postgres - any combination
 
-Set `STORAGE_BACKENDS` in `.env`:
+Open **`/settings.html`** (served by the app itself - Ingress panel for the
+HA add-on, or `http://<host>:8080/settings.html` for plain Docker) and enter
+one of your `ADMIN_API_KEYS`. Check any combination of the three storage
+backends; each one's own config panel expands underneath:
 
-- `postgres` - Postgres only (recommended for real multi-user use; the bundled
-  `docker-compose.yml` includes a Postgres container and applies
-  `migrations/001_init.sql` automatically on first boot).
-- `sheets` - Google Sheets only, one spreadsheet with `Users` / `Numbers` /
-  `Reminders` / `Templates` tabs (auto-created on first run). Needs a service
-  account JSON with edit access to the sheet
-  (`GOOGLE_SERVICE_ACCOUNT_KEY_FILE`, `GOOGLE_SHEETS_SPREADSHEET_ID`).
-- `postgres,sheets` - both at once. Postgres is primary (used for reads and
-  for the scheduler's due-reminder scan); every write is mirrored into the
-  Sheet too, so it stays a live, human-editable copy. This is best-effort
-  dual-write, not a transaction - if the Sheets write fails it's logged but
-  doesn't fail the request.
+- **Home Assistant local** - a JSON file on disk
+  (`src/storage/HaLocalAdapter.ts`), nothing to configure. Good default for
+  "one household, a handful of reminders."
+- **Google Sheet** - click **Connect with Google**, sign in on Google's own
+  consent screen, then either pick one of your existing spreadsheets or
+  create a new one from the list that appears. No API console, no service
+  account JSON - see "Google OAuth setup" below for the one-time step a
+  *deployer* (not each user) does to enable this button at all.
+- **Postgres** - recommended for real multi-user use. Always separate
+  fields, never a hand-built connection string:
+  - **Auto**: review (or just leave) the pre-filled database name,
+    username, password and port, then click **Create Postgres container** -
+    it generates/uses those details and starts a `postgres:16-alpine`
+    container for you via the Docker socket (see the commented-out
+    `docker.sock` mount in `docker-compose.yml`, or `docker_api: true` in
+    the HA add-on's `config.yaml`, already on by default). Without a
+    reachable socket, you get a docker-compose block to paste in instead.
+  - **Manual**: fill in host/port/db/user/password for a Postgres you
+    already have (your own server, a managed one, the official HA
+    "PostgreSQL" add-on) - **Test connection** before saving.
+
+Check multiple boxes and **Save storage selection** to run more than one at
+once: writes fan out to every enabled backend, the first one you checked is
+primary for reads (best-effort mirroring, doesn't fail the request if a
+secondary write fails - see `MultiStorage`). Changes apply immediately, no
+restart - `src/storage/LiveStorage.ts` is what every route/the scheduler
+actually holds a reference to, so swapping the underlying adapter(s) takes
+effect on the very next request.
+
+Everything above is also settable via env vars / the HA add-on's
+Configuration tab for a fully scripted first boot (`STORAGE_BACKENDS`,
+`POSTGRES_MODE` + `POSTGRES_AUTO_*` / `database_url` fields,
+`GOOGLE_SHEETS_SPREADSHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` - see
+`.env.example`); those are just the *bootstrap defaults* though - once the
+app has booted once, Settings (persisted to `DATA_DIR/settings.json`) is
+what's actually in charge. If Postgres is enabled with `postgres_mode: auto`
+and no connection yet, the app tries to provision one itself at boot too -
+see `maybeAutoProvisionPostgres()` in `src/index.ts` - so filling in the
+add-on's Configuration tab can be enough on its own, no need to also visit
+Settings afterward.
+
+### Google OAuth setup (one-time, per deployment)
+
+To enable the **Connect with Google** button at all, whoever deploys this
+app creates one OAuth client (their end users never see this step):
+
+1. [Google Cloud Console](https://console.cloud.google.com/) -> a project ->
+   **APIs & Services -> Credentials -> Create Credentials -> OAuth client
+   ID -> Web application**.
+2. Under **Authorized redirect URIs**, add
+   `{PUBLIC_BASE_URL}/api/integrations/google/callback` (exactly matching
+   `PUBLIC_BASE_URL` in `.env`/the add-on's `public_base_url` option).
+3. Copy the Client ID and Client Secret into `GOOGLE_OAUTH_CLIENT_ID` /
+   `GOOGLE_OAUTH_CLIENT_SECRET`.
+4. If the OAuth consent screen is in "Testing" mode, add the Google
+   account(s) that will click Connect as test users (or publish the app).
 
 ## WhatsApp gateways: WAHA and ha-whatsapp
 
@@ -155,9 +205,14 @@ that prebuilt image, so installing is just a `docker pull`, not a build.
 4. "WhatsApp Reminder Platform" should now appear under a new "Ammar's
    Add-ons" section. Install it - this pulls the image from GHCR instead of
    building, so it should be fast and light even on a Pi.
-5. Fill in the add-on's **Configuration** tab (storage backend, WAHA URL/key,
-   optional Postgres URL / Sheets spreadsheet ID).
-6. Start the add-on. It listens on port 8080 and exposes an Ingress panel.
+5. Fill in the add-on's **Configuration** tab: storage backend(s), WAHA
+   URL/key, and - if you're enabling Postgres from here rather than from
+   Settings afterward - either `postgres_mode: auto` (creates one for you;
+   needs `docker_api: true`, on by default) or `manual` with the
+   host/port/database/user/password fields. Sheets can be left blank here
+   and connected later via "Connect with Google" in Settings instead.
+6. Start the add-on. It listens on port 8080 and exposes an Ingress panel -
+   open it and finish anything left in **Settings** (`/settings.html`).
 7. Wire up your dashboard using `whatsapp_reminder_platform/dashboard-example.yaml`,
    which adapts your existing mushroom-card dashboard to call the new API
    instead of the old Apps Script web app - same look, same helpers, new
@@ -217,6 +272,16 @@ Every user is fully isolated: separate numbers, separate sessions, separate
 reminders, separate footer template - all enforced by `userId` scoping in
 every storage query and by the `X-Api-Key` auth middleware.
 
+## Adding a reminder: web page, or the Lovelace card
+
+`/reminder.html` is a small standalone page (no Home Assistant needed) for
+adding a reminder from any browser or phone: enter your personal `X-Api-Key`
+once (kept in that browser's local storage), pick which connected number to
+send from, fill in recipient/message/time/recurrence, submit - it's just a
+thin form over `POST /api/reminders`. The existing
+`whatsapp_reminder_platform/dashboard-example.yaml` Lovelace card keeps
+working exactly as before and hits the same endpoint; use whichever's handier.
+
 ## Migrating from the old spreadsheet
 
 Your existing `Reminders` tab (S/N, Timestamp, Date of Reminder, Reminder To,
@@ -256,3 +321,6 @@ once you've decided which storage backend you're standardizing on.
   treated like passwords - send over HTTPS only.
 - The Google service account key and any HA long-lived tokens should live in
   `secrets/` / the HA add-on's `addon_config` mount, never committed to git.
+- `DATA_DIR/settings.json` holds Postgres credentials and the Google OAuth
+  refresh token once configured - treat it like `secrets/` (it's already
+  gitignored, and lives under the HA add-on's `addon_config` mount too).

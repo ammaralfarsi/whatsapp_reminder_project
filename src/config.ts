@@ -28,6 +28,17 @@ export const config = {
   postgres: {
     databaseUrl: process.env.DATABASE_URL ?? "",
     ssl: (process.env.PGSSL ?? "false").toLowerCase() === "true",
+    // "auto": on boot, if Postgres is enabled and there's no working
+    // connection yet, try to create one automatically using the fields
+    // below (see src/api/routes/postgresProvision.ts / the boot-time hook
+    // in src/index.ts). "manual" (the default) never does this on its own -
+    // DATABASE_URL (built from postgres_* fields, or pasted directly) is
+    // the only way in.
+    mode: (process.env.POSTGRES_MODE ?? "manual").toLowerCase() === "auto" ? "auto" : ("manual" as "auto" | "manual"),
+    autoDatabase: process.env.POSTGRES_AUTO_DATABASE || "reminders",
+    autoUser: process.env.POSTGRES_AUTO_USER || "reminder_user",
+    autoPassword: process.env.POSTGRES_AUTO_PASSWORD ?? "",
+    autoPort: Number(process.env.POSTGRES_AUTO_PORT ?? 5433),
   },
 
   sheets: {
