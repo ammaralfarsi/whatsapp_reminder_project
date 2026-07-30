@@ -38,7 +38,7 @@ input_datetime:
 # this HA instance's WhatsApp number - see README "Home Assistant setup".
 rest_command:
   add_reminder:
-    url: "http://<reminder-app-host>:8080/api/reminders"
+    url: "http://<reminder-app-host>:8086/api/reminders"
     method: POST
     headers:
       X-Api-Key: "<your-user-api-key>"
