@@ -19,7 +19,19 @@ export function requireUser(storage: StorageAdapter) {
     if (!apiKey) return res.status(401).json({ error: "Missing X-Api-Key header" });
 
     const user = await storage.getUserByApiKey(apiKey);
-    if (!user) return res.status(401).json({ error: "Invalid API key" });
+    if (!user) {
+      // The single most common mistake here: pasting the *admin* key (used
+      // for Settings) into a per-user field like reminder.html. Give a
+      // pointed error instead of a bare "Invalid API key" when that's
+      // exactly what happened.
+      if (config.adminApiKeys.includes(apiKey)) {
+        return res.status(401).json({
+          error:
+            "That's the admin key, not a user key. Create a user in Settings -> Users (or POST /api/users) and use their personal API key here instead.",
+        });
+      }
+      return res.status(401).json({ error: "Invalid API key" });
+    }
 
     req.user = user;
     next();

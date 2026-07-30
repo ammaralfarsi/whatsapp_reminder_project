@@ -5,6 +5,13 @@ here. Home Assistant's Supervisor reads this file directly and shows it on
 the add-on's info page, so keep it in sync with `version:` in `config.yaml`
 - bump one, add an entry here.
 
+## 1.1.9
+
+- Clearer error when the admin key is pasted into a per-user field (like
+  `/reminder.html`'s API key box) by mistake: instead of a bare "Invalid API
+  key", it now says "That's the admin key, not a user key. Create a user in
+  Settings -> Users ... and use their personal API key here instead."
+
 ## 1.1.8
 
 - `/reminder.html` can now connect a WhatsApp number directly - **+ Add
