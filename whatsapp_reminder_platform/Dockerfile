@@ -14,8 +14,8 @@
 # to git-clone itself the way the old on-device version did.
 FROM node:20-alpine AS build
 WORKDIR /app
-COPY package.json tsconfig.json ./
-RUN npm install
+COPY package.json package-lock.json tsconfig.json ./
+RUN npm ci
 COPY src ./src
 RUN npm run build
 
@@ -26,8 +26,8 @@ RUN apk add --no-cache nodejs npm
 
 WORKDIR /app
 ENV NODE_ENV=production
-COPY package.json ./
-RUN npm install --omit=dev
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
 COPY public ./public

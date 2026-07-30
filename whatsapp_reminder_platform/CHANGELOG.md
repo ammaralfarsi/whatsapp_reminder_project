@@ -5,6 +5,18 @@ here. Home Assistant's Supervisor reads this file directly and shows it on
 the add-on's info page, so keep it in sync with `version:` in `config.yaml`
 - bump one, add an entry here.
 
+## 1.1.2
+
+- Fixed the CI build failure (`npm run build` exit code 2): `package.json`
+  had reverted back to `googleapis@144.0.0`, a version with a genuine parse
+  error in its shipped type definitions (unrelated to any app code) -
+  re-pinned to `^173.0.0` and dropped the now-redundant direct
+  `google-auth-library` dependency.
+- Added a committed `package-lock.json` and switched both Dockerfiles from
+  `npm install` to `npm ci`, so CI resolves the exact same dependency
+  versions every time instead of re-resolving fresh (which is what let the
+  above regression happen silently).
+
 ## 1.1.1
 
 - Google Sheets is now OAuth-only: removed the legacy service account
