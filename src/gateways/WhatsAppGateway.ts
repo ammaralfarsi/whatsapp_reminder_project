@@ -24,4 +24,12 @@ export interface WhatsAppGateway {
 
   /** Send a text message. Returns true on success. */
   sendText(sessionId: string, recipient: string, text: string): Promise<boolean>;
+
+  /**
+   * Optional: list sessions that already exist on this gateway, so a new
+   * number can attach to one instead of always getting a fresh one. Only
+   * WAHA supports this (ha-whatsapp is one session per HA instance, nothing
+   * to list) - gateways that don't implement it just omit this method.
+   */
+  listSessions?(): Promise<Array<{ name: string; status: string }>>;
 }

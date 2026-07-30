@@ -98,6 +98,14 @@
   .sheet-item:hover { background: #eef7f0; }
   .sheet-item.selected { background: var(--wa-green); color: white; }
   code.small { font-size: 12px; background: #eee; padding: 2px 5px; border-radius: 4px; }
+  .user-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .user-row:last-child { border-bottom: none; }
+  .user-row .who { min-width: 0; }
+  .user-row .who .name { font-weight: 600; }
+  .user-row .who .email { color: var(--muted); font-size: 12px; }
+  .user-row .key-wrap { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .user-row code.small { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+  .user-row button.secondary { margin: 0; padding: 5px 10px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -112,6 +120,18 @@
     <h2>Admin API key</h2>
     <p class="hint">One of the values in <code class="small">ADMIN_API_KEYS</code>. Stored only in this browser (localStorage), sent as <code class="small">X-Api-Key</code>. On the Home Assistant add-on, if you left <code class="small">admin_api_keys</code> blank in Configuration, one was auto-generated for you on first boot - check this add-on's Log tab for a one-time notice with the value.</p>
     <input type="password" id="adminKey" placeholder="Admin API key" />
+  </div>
+
+  <div class="card">
+    <h2>Users</h2>
+    <p class="hint">The admin key above is only for this Settings page - it does not work in <a href="/reminder.html">+ New Reminder</a>. Each person needs their own user, created here, with their own personal API key.</p>
+    <div id="userList" style="margin-bottom:10px;"></div>
+    <label class="field">Email</label>
+    <input type="text" id="newUserEmail" placeholder="friend@example.com" />
+    <label class="field">Display name</label>
+    <input type="text" id="newUserName" placeholder="A Friend" />
+    <button type="button" id="btnCreateUser">Create user</button>
+    <div class="status-line" id="userStatus"></div>
   </div>
 
   <div class="card">
@@ -259,11 +279,59 @@ async function loadSettings() {
     }
 
     await refreshGoogleStatus();
+    await loadUsers();
   } catch (err) {
     $('saveStatus').textContent = 'Could not load settings: ' + err.message;
     $('saveStatus').className = 'status-line status-bad';
   }
 }
+
+function maskKey(key) {
+  return key.length > 10 ? key.slice(0, 6) + '...' + key.slice(-4) : key;
+}
+
+async function loadUsers() {
+  const list = $('userList');
+  try {
+    const { body: users } = await api('/api/users');
+    list.innerHTML = users.length
+      ? users.map((u) => `
+          <div class="user-row">
+            <div class="who"><div class="name">${u.displayName}</div><div class="email">${u.email}</div></div>
+            <div class="key-wrap">
+              <code class="small" title="${u.apiKey}">${maskKey(u.apiKey)}</code>
+              <button type="button" class="secondary" data-copy="${u.apiKey}">Copy key</button>
+            </div>
+          </div>`).join('')
+      : '<p class="hint" style="margin:0;">No users yet - create the first one below.</p>';
+    list.querySelectorAll('button[data-copy]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        navigator.clipboard.writeText(btn.dataset.copy);
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy key'; }, 1500);
+      });
+    });
+  } catch (err) {
+    list.innerHTML = '';
+  }
+}
+
+$('btnCreateUser').addEventListener('click', async () => {
+  const email = $('newUserEmail').value.trim();
+  const displayName = $('newUserName').value.trim();
+  if (!email || !displayName) return alert('Enter both an email and a display name.');
+  try {
+    const { body } = await api('/api/users', { method: 'POST', body: JSON.stringify({ email, displayName }) });
+    $('userStatus').textContent = `Created. Their personal API key: ${body.apiKey} - copy it now and give it to them (also visible via "Copy key" above afterward).`;
+    $('userStatus').className = 'status-line status-ok';
+    $('newUserEmail').value = '';
+    $('newUserName').value = '';
+    await loadUsers();
+  } catch (err) {
+    $('userStatus').textContent = err.message;
+    $('userStatus').className = 'status-line status-bad';
+  }
+});
 
 async function refreshGoogleStatus() {
   try {

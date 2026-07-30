@@ -5,6 +5,35 @@ here. Home Assistant's Supervisor reads this file directly and shows it on
 the add-on's info page, so keep it in sync with `version:` in `config.yaml`
 - bump one, add an entry here.
 
+## 1.1.8
+
+- `/reminder.html` can now connect a WhatsApp number directly - **+ Add
+  number**: choose the gateway (WAHA or ha-whatsapp), and for WAHA either a
+  brand-new session or an existing one (new `GET /api/gateways/waha/sessions`
+  lists what's already on your WAHA instance), with the QR code shown and
+  polled inline until it's scanned. No curl required to connect a number
+  anymore.
+- `POST /api/numbers` accepts an optional `sessionId` to attach to an
+  existing WAHA session instead of always creating a new one
+  (`SessionManager.addNumber`).
+
+## 1.1.7
+
+- Fixed the "Invalid API key" confusion on `/reminder.html`: there was no
+  way to create a user (and get their personal API key) without a manual
+  `curl -X POST /api/users` command - easy to miss that the *admin* key and
+  a *user's* key are different things. Added a **Users** section to
+  Settings: create a user (email + display name), see the generated API
+  key, copy it with one click. Entering the admin key into `/reminder.html`
+  will still (correctly) fail - it's not a user key.
+
+## 1.1.6
+
+- Fixed "Cannot GET /" when opening the web UI (Ingress panel, or a bare
+  `http://<host>:8086/`): there was no route for `/` and no
+  `public/index.html`, so it fell through to Express's default 404. `/` now
+  redirects to `/settings.html`.
+
 ## 1.1.5
 
 - Changed the default port from `8080` to `8086` everywhere (add-on

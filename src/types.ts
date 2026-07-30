@@ -12,9 +12,10 @@ export interface User {
 
 /**
  * A WhatsApp "number" a user has connected. Each number maps to exactly one
- * gateway session (e.g. one WAHA session). Adding a brand-new number for a
- * user always provisions a brand-new session - numbers are never shared
- * across sessions, even for the same user.
+ * gateway session (e.g. one WAHA session). By default, adding a number
+ * provisions a brand-new session; the "add a number" flow (reminder.html,
+ * or POST /api/numbers with a `sessionId`) can instead attach it to an
+ * existing WAHA session - see SessionManager.addNumber.
  */
 export interface WhatsAppNumber {
   id: string; // uuid

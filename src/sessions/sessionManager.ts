@@ -4,11 +4,12 @@ import { getGateway } from "../gateways";
 import { GatewayKind, WhatsAppNumber } from "../types";
 
 /**
- * Owns the "new phone number -> new gateway session" rule: every time a user
- * adds a WhatsApp number, this provisions a brand-new, isolated session on
- * the chosen gateway (WAHA session, or an ha-whatsapp pairing) rather than
- * reusing any existing one - matching the requirement that a new number
- * always gets its own session.
+ * Owns the "new phone number -> gateway session" rule: by default, adding a
+ * WhatsApp number provisions a brand-new, isolated session on the chosen
+ * gateway (a fresh WAHA session, or an ha-whatsapp pairing) - but the caller
+ * can also pass an existing sessionId (e.g. picked from
+ * WahaGateway.listSessions()) to attach the new number to a session that
+ * already exists instead, rather than always creating one.
  */
 export class SessionManager {
   constructor(private storage: StorageAdapter) {}
@@ -19,13 +20,19 @@ export class SessionManager {
     return `u${userId.slice(0, 8)}_${cleanPhone}`;
   }
 
-  async addNumber(userId: string, label: string, phoneNumber: string, gateway: GatewayKind): Promise<WhatsAppNumber> {
+  async addNumber(
+    userId: string,
+    label: string,
+    phoneNumber: string,
+    gateway: GatewayKind,
+    existingSessionId?: string
+  ): Promise<WhatsAppNumber> {
     const existing = await this.storage.listNumbersForUser(userId);
     if (existing.some((n) => n.phoneNumber === phoneNumber.replace(/\D/g, ""))) {
       throw new Error("This phone number is already registered for this user.");
     }
 
-    const sessionId = this.makeSessionId(userId, phoneNumber);
+    const sessionId = existingSessionId?.trim() || this.makeSessionId(userId, phoneNumber);
     const number: WhatsAppNumber = {
       id: uuidv4(),
       userId,

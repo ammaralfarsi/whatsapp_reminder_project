@@ -64,6 +64,13 @@
 
   .gate { text-align: center; }
   .gate p { color: var(--muted); font-size: 13.5px; }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 4px 0 0; }
+  button.secondary {
+    background: white; color: var(--wa-dark); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 0;
+  }
+  .numbers-head { display: flex; justify-content: space-between; align-items: center; }
+  .numbers-head strong { font-size: 14px; }
 </style>
 </head>
 <body>
@@ -78,6 +85,43 @@
     <label class="field" style="text-align:left;">Your API key</label>
     <input type="password" id="apiKey" placeholder="Your personal API key" />
     <p>Ask whoever set up this platform for your <code>X-Api-Key</code>. Stored only in this browser.</p>
+  </div>
+
+  <div class="card" id="numbersCard" style="display:none;">
+    <div class="numbers-head">
+      <strong>Your WhatsApp numbers</strong>
+      <button type="button" class="secondary" id="btnToggleAddNumber">+ Add number</button>
+    </div>
+    <p class="hint" id="noNumbersHint" style="display:none;">No numbers connected yet - add one below to start sending reminders.</p>
+
+    <div id="addNumberForm" style="display:none; margin-top:14px;">
+      <label class="field">Label</label>
+      <input type="text" id="numLabel" placeholder="e.g. Personal" />
+      <label class="field">Phone number</label>
+      <input type="text" id="numPhone" placeholder="e.g. 96895537783" />
+      <label class="field">Gateway</label>
+      <select id="numGateway">
+        <option value="waha">WAHA</option>
+        <option value="ha-whatsapp">ha-whatsapp (Home Assistant)</option>
+      </select>
+
+      <div id="wahaSessionChoice">
+        <label class="field">WAHA session</label>
+        <div class="radio-row">
+          <label><input type="radio" name="sessionMode" value="new" checked /> New session</label>
+          <label><input type="radio" name="sessionMode" value="existing" /> Use existing session</label>
+        </div>
+        <select id="existingSessionSelect" style="display:none; margin-top:6px;"></select>
+      </div>
+      <p class="hint" id="haWhatsappHint" style="display:none;">ha-whatsapp is one session per Home Assistant instance, paired through the HA UI (Settings -> Devices &amp; Services) - not a QR code here. This just checks that your HA instance is reachable.</p>
+
+      <button type="button" class="primary" id="btnAddNumber">Connect</button>
+      <div class="status-line" id="addNumberStatus"></div>
+      <div id="qrWrap" style="display:none; text-align:center; margin-top:12px;">
+        <img id="qrImage" alt="WhatsApp QR code" style="max-width:220px; width:100%;" />
+        <p class="hint">Scan this in WhatsApp -&gt; Linked devices -&gt; Link a device.</p>
+      </div>
+    </div>
   </div>
 
   <form class="card" id="form" style="display:none;">
@@ -129,25 +173,119 @@ async function api(path, opts = {}) {
   return body;
 }
 
+async function refreshNumbers() {
+  const numbers = await api('/api/numbers');
+  $('noNumbersHint').style.display = numbers.length ? 'none' : 'block';
+  if (numbers.length) {
+    $('numberId').innerHTML = numbers.map((n) => `<option value="${n.id}">${n.label} (${n.phoneNumber})</option>`).join('');
+    $('form').style.display = 'block';
+  } else {
+    $('form').style.display = 'none';
+  }
+  return numbers;
+}
+
 async function unlock() {
   if (!apiKeyInput.value) return;
   try {
     await api('/api/me'); // validates the key
     localStorage.setItem('userApiKey', apiKeyInput.value);
-    const numbers = await api('/api/numbers');
-    if (!numbers.length) {
-      $('gate').innerHTML = '<p>No WhatsApp numbers connected yet for this account. Connect one first (see the README), then reload this page.</p>';
-      return;
-    }
-    $('numberId').innerHTML = numbers.map((n) => `<option value="${n.id}">${n.label} (${n.phoneNumber})</option>`).join('');
+    const numbers = await refreshNumbers();
     $('gate').style.display = 'none';
-    $('form').style.display = 'block';
+    $('numbersCard').style.display = 'block';
+    if (!numbers.length) $('addNumberForm').style.display = 'block';
   } catch (err) {
     $('gate').querySelector('p').textContent = 'Invalid API key: ' + err.message;
   }
 }
 
 apiKeyInput.addEventListener('change', unlock);
+
+$('btnToggleAddNumber').addEventListener('click', () => {
+  const showing = $('addNumberForm').style.display !== 'none';
+  $('addNumberForm').style.display = showing ? 'none' : 'block';
+});
+
+function updateGatewayFields() {
+  const isWaha = $('numGateway').value === 'waha';
+  $('wahaSessionChoice').style.display = isWaha ? 'block' : 'none';
+  $('haWhatsappHint').style.display = isWaha ? 'none' : 'block';
+}
+$('numGateway').addEventListener('change', updateGatewayFields);
+updateGatewayFields();
+
+document.querySelectorAll('input[name=sessionMode]').forEach((r) => {
+  r.addEventListener('change', async () => {
+    const useExisting = document.querySelector('input[name=sessionMode]:checked').value === 'existing';
+    $('existingSessionSelect').style.display = useExisting ? 'block' : 'none';
+    if (useExisting) {
+      $('existingSessionSelect').innerHTML = '<option>Loading...</option>';
+      try {
+        const sessions = await api('/api/gateways/waha/sessions');
+        $('existingSessionSelect').innerHTML = sessions.length
+          ? sessions.map((s) => `<option value="${s.name}">${s.name} (${s.status})</option>`).join('')
+          : '<option value="">No existing sessions found</option>';
+      } catch (err) {
+        $('existingSessionSelect').innerHTML = `<option value="">Could not load sessions: ${err.message}</option>`;
+      }
+    }
+  });
+});
+
+$('btnAddNumber').addEventListener('click', async () => {
+  const status = $('addNumberStatus');
+  const label = $('numLabel').value.trim();
+  const phoneNumber = $('numPhone').value.trim();
+  if (!label || !phoneNumber) { status.textContent = 'Enter a label and phone number.'; status.className = 'status-line status-bad'; return; }
+
+  const gateway = $('numGateway').value;
+  const useExisting = gateway === 'waha' && document.querySelector('input[name=sessionMode]:checked').value === 'existing';
+  const sessionId = useExisting ? $('existingSessionSelect').value : undefined;
+
+  status.textContent = 'Connecting...';
+  status.className = 'status-line';
+  $('qrWrap').style.display = 'none';
+  try {
+    const number = await api('/api/numbers', {
+      method: 'POST',
+      body: JSON.stringify({ label, phoneNumber, gateway, sessionId }),
+    });
+    await pollQr(number.id, status);
+    await refreshNumbers();
+  } catch (err) {
+    status.textContent = err.message;
+    status.className = 'status-line status-bad';
+  }
+});
+
+async function pollQr(numberId, status, attemptsLeft = 15) {
+  try {
+    const result = await api(`/api/numbers/${numberId}/qr`);
+    if (result.status === 'connected') {
+      status.textContent = result.message || 'Connected!';
+      status.className = 'status-line status-ok';
+      $('qrWrap').style.display = 'none';
+      return;
+    }
+    if (result.status === 'qr' && result.qrImageBase64) {
+      $('qrImage').src = result.qrImageBase64;
+      $('qrWrap').style.display = 'block';
+      status.textContent = 'Scan the QR code below.';
+      status.className = 'status-line';
+    } else if (result.status === 'error') {
+      status.textContent = result.message || 'Connection error.';
+      status.className = 'status-line status-bad';
+      return;
+    } else {
+      status.textContent = result.message || 'Waiting for session to start...';
+      status.className = 'status-line';
+    }
+    if (attemptsLeft > 0) setTimeout(() => pollQr(numberId, status, attemptsLeft - 1), 3000);
+  } catch (err) {
+    status.textContent = err.message;
+    status.className = 'status-line status-bad';
+  }
+}
 
 document.querySelectorAll('input[name=recurrence]').forEach((r) => {
   r.addEventListener('change', () => {

@@ -9,15 +9,16 @@ export function numbersRouter(storage: StorageAdapter): Router {
   const sessions = new SessionManager(storage);
   const auth = requireUser(storage);
 
-  // Add a new WhatsApp number for the current user. Always provisions a
-  // brand-new gateway session - never reuses one.
+  // Add a new WhatsApp number for the current user. By default provisions a
+  // brand-new gateway session; pass `sessionId` (e.g. one returned by
+  // GET /api/gateways/waha/sessions) to attach to an existing one instead.
   router.post("/numbers", auth, async (req: AuthedRequest, res) => {
-    const { label, phoneNumber, gateway } = req.body ?? {};
+    const { label, phoneNumber, gateway, sessionId } = req.body ?? {};
     if (!label || !phoneNumber) return res.status(400).json({ error: "label and phoneNumber are required" });
     const gw: GatewayKind = gateway === "ha-whatsapp" ? "ha-whatsapp" : "waha";
 
     try {
-      const number = await sessions.addNumber(req.user!.id, label, phoneNumber, gw);
+      const number = await sessions.addNumber(req.user!.id, label, phoneNumber, gw, sessionId);
       res.status(201).json(number);
     } catch (err: any) {
       res.status(400).json({ error: err.message });

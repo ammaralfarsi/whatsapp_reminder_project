@@ -105,4 +105,13 @@ export class WahaGateway implements WhatsAppGateway {
     });
     return res.status === 201 || res.status === 200;
   }
+
+  /** Existing sessions on this WAHA instance, so a new number can attach to
+   * one instead of always provisioning a brand-new one (e.g. re-pairing a
+   * device that already scanned a QR outside this app). */
+  async listSessions(): Promise<Array<{ name: string; status: string }>> {
+    const res = await this.http.get(`/api/sessions`);
+    if (res.status !== 200 || !Array.isArray(res.data)) return [];
+    return res.data.map((s: any) => ({ name: s.name, status: s.status ?? s.engine?.state ?? "unknown" }));
+  }
 }

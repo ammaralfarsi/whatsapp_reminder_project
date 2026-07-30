@@ -136,17 +136,25 @@ app creates one OAuth client (their end users never see this step):
 
 ## WhatsApp gateways: WAHA and ha-whatsapp
 
+Both are selectable per number from `/reminder.html` -> **+ Add number**
+(no curl needed): pick a gateway, and for WAHA choose **New session** or
+**Use existing session** (fetched live from WAHA via
+`GET /api/gateways/waha/sessions`) if you already have one paired that you
+want this number to reuse instead of pairing again from scratch.
+
 - **WAHA** (`src/gateways/WahaGateway.ts`) - fully implemented, ported
   directly from the original script's session creation, QR fetch, typing
   indicators, and `sendText` logic, generalized to take an explicit
-  `sessionId` per call instead of assuming one global session.
+  `sessionId` per call instead of assuming one global session. The add-a-
+  number form shows the QR code inline and polls until it's scanned.
 
-- **ha-whatsapp** ([faserf.github.io/ha-whatsapp](https://faserf.github.io/ha-whatsapp/))
+- **[ha-whatsapp](https://github.com/FaserF/ha-whatsapp)**
   (`src/gateways/HaWhatsappGateway.ts`) - **adapter stub, not verified**.
   ha-whatsapp is a Home Assistant custom integration built around one WhatsApp
   Web session per HA instance, paired manually through the HA config-flow UI
-  - it doesn't expose the kind of multi-session HTTP API WAHA does. The
-    adapter calls HA's generic "call a service" REST endpoint
+  - it doesn't expose the kind of multi-session HTTP API WAHA does, and
+    there's no QR step in this app's UI for it (pairing happens in HA
+    itself). The adapter calls HA's generic "call a service" REST endpoint
     (`POST /api/services/<domain>/<service>`) with a guessed payload shape.
   Before relying on it:
   1. Install ha-whatsapp in HA and pair it once through the UI.
@@ -249,6 +257,15 @@ your own HA instance without extra configuration.
 
 ## Onboarding a new user (what makes this "scalable to others")
 
+**Via the UI (no curl needed):** open **Settings -> Users**, enter their
+email and display name, click **Create user** - it shows their personal API
+key (copyable). Give that to them; they open `/reminder.html`, paste it in,
+and use **+ Add number** to connect a WhatsApp number (choosing WAHA or
+ha-whatsapp, and a new-vs-existing session for WAHA) with the QR code shown
+and polled right there - then they can add reminders immediately.
+
+The same steps as raw API calls, if you'd rather script onboarding:
+
 ```bash
 curl -X POST https://your-host:8086/api/users \
   -H "X-Api-Key: <ADMIN_API_KEYS value>" \
@@ -260,7 +277,9 @@ curl -X POST https://your-host:8086/api/users \
 The new user then:
 
 ```bash
-# 1. Connect a WhatsApp number (creates a fresh WAHA session)
+# 1. Connect a WhatsApp number (creates a fresh WAHA session; pass
+#    "sessionId" instead of omitting it to attach to an existing session -
+#    see GET /api/gateways/waha/sessions to list what's available)
 curl -X POST https://your-host:8086/api/numbers \
   -H "X-Api-Key: <their apiKey>" -H "Content-Type: application/json" \
   -d '{"label":"Personal","phoneNumber":"96895537783","gateway":"waha"}'
@@ -291,9 +310,12 @@ every storage query and by the `X-Api-Key` auth middleware.
 adding a reminder from any browser or phone: enter your personal `X-Api-Key`
 once (kept in that browser's local storage), pick which connected number to
 send from, fill in recipient/message/time/recurrence, submit - it's just a
-thin form over `POST /api/reminders`. The existing
-`whatsapp_reminder_platform/dashboard-example.yaml` Lovelace card keeps
-working exactly as before and hits the same endpoint; use whichever's handier.
+thin form over `POST /api/reminders`. The same page's **+ Add number**
+button also handles connecting a WhatsApp number in the first place (gateway
+choice, WAHA session picker, QR code) - no separate step needed. The
+existing `whatsapp_reminder_platform/dashboard-example.yaml` Lovelace card
+keeps working exactly as before and hits the same endpoint; use whichever's
+handier.
 
 ## Migrating from the old spreadsheet
 
