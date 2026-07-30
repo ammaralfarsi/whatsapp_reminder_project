@@ -30,7 +30,7 @@ async function main() {
   } catch (err: any) {
     console.error(
       `[storage] not ready yet (${err.message}). The server is still running - ` +
-        `open the Settings page (Ingress panel, or http://<host>:8080/settings.html) to finish configuring a storage backend.`
+        `open the Settings page (Ingress panel, or http://<host>:${config.port}/settings.html) to finish configuring a storage backend.`
     );
   }
 }

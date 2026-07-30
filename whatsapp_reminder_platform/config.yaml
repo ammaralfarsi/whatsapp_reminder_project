@@ -1,5 +1,5 @@
 name: "WhatsApp Reminder Platform"
-version: "1.1.4"
+version: "1.1.5"
 slug: "whatsapp_reminder_platform"
 description: "Multi-user WhatsApp reminders via WAHA, with optional Postgres/Sheets storage."
 url: "https://github.com/ammaralfarsi/whatsapp_reminder_project"
@@ -15,13 +15,13 @@ init: false
 startup: services
 boot: auto
 ingress: true
-ingress_port: 8080
+ingress_port: 8086
 panel_icon: mdi:whatsapp
 timeout: 300
 ports:
-  8080/tcp: 8080
+  8086/tcp: 8086
 ports_description:
-  8080/tcp: "Reminder platform HTTP API"
+  8086/tcp: "Reminder platform HTTP API"
 # Left off on purpose: Home Assistant's `docker_api` option only ever grants
 # *read-only* access to a Supervisor-proxied Docker API (that's HA's own
 # design, not a config choice this add-on could work around), so it cannot
@@ -35,17 +35,17 @@ docker_api: false
 options:
   # Comma-separated admin key(s) - paste one of these into the Settings page
   # (/settings.html, top of the page) to unlock storage backend selection,
-  # Postgres setup and "Connect with Google". Without this set to something
-  # only you know, nobody (including you) can use those admin actions - so
-  # change this from the default before exposing the add-on beyond localhost.
-  admin_api_keys: "change-me-admin-key"
+  # Postgres setup and "Connect with Google". Leave blank and one is
+  # generated for you on first boot (check this add-on's Log tab for the
+  # one-time notice with the value) - or set your own here instead.
+  admin_api_keys: ""
   storage_backends: "ha_local"
   # Used to build the Google OAuth redirect URI (must exactly match an
   # "Authorized redirect URI" in your Google Cloud OAuth client). Defaults to
   # localhost, which only works if you open this add-on's UI from the same
-  # machine - set this to your real HA URL (e.g. https://ha.example.com:8080)
+  # machine - set this to your real HA URL (e.g. https://ha.example.com:8086)
   # to use "Connect with Google" from elsewhere.
-  public_base_url: "http://localhost:8080"
+  public_base_url: "http://localhost:8086"
 
   # --- Postgres: fill these in, or leave "auto" to have one created for you ---
   postgres_mode: "manual"
@@ -73,10 +73,10 @@ options:
   scheduler_cron: "*/1 * * * *"
   default_footer_template: "\n\n~Auto Reminder~      ~تذكير تلقائي~"
 schema:
-  admin_api_keys: "str"
+  admin_api_keys: "str?"
   # Bootstrap-only default for first boot; change which backend(s) are
   # active any time afterwards from the add-on's web UI (Settings, reached
-  # via Ingress or http://<host>:8080/settings.html) without restarting.
+  # via Ingress or http://<host>:8086/settings.html) without restarting.
   storage_backends: "list(ha_local|postgres|sheets|postgres+sheets|postgres+ha_local|sheets+ha_local|postgres+sheets+ha_local)"
   public_base_url: "str?"
 

@@ -5,16 +5,30 @@ here. Home Assistant's Supervisor reads this file directly and shows it on
 the add-on's info page, so keep it in sync with `version:` in `config.yaml`
 - bump one, add an entry here.
 
+## 1.1.5
+
+- Changed the default port from `8080` to `8086` everywhere (add-on
+  `ingress_port`/`ports`, `run.sh`, plain Docker `Dockerfile`/
+  `docker-compose.yml`, `.env.example`, `src/config.ts` fallback, README,
+  dashboard example). If you're upgrading the plain Docker/docker-compose
+  deployment, update your own port mapping/reverse proxy accordingly - the
+  HA add-on picks this up automatically.
+- Also fixed the plain-Docker `Dockerfile`: it never copied `public/` into
+  the final image, so `/settings.html` and `/reminder.html` would 404
+  there (same bug already fixed for the HA add-on's Dockerfile in 1.1.0).
+
 ## 1.1.4
 
 - Fixed a real lockout bug: this add-on never exposed `ADMIN_API_KEYS` as a
   Configuration option, so `requireAdmin` (Settings page, Postgres setup,
   "Connect with Google") had nothing to check against and rejected every
   request - there was no key you could enter that would ever work. Added
-  `admin_api_keys` as a required Configuration field (mirrors `waha_api_key`),
-  wired through `run.sh`. **After updating, set this field to your own value
-  and use it in Settings** (paste it in the box at the top of the page -
-  it's stored in your browser only, sent as `X-Api-Key`).
+  `admin_api_keys` as a Configuration field. **Leave it blank and `run.sh`
+  auto-generates one for you on first boot**, persists it under the add-on's
+  own storage so it survives restarts/updates, and logs it once to this
+  add-on's Log tab - copy that value into the box at the top of the Settings
+  page (`/settings.html`). Set the field yourself instead if you'd rather
+  pick your own key.
 
 ## 1.1.3
 

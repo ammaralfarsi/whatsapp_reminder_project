@@ -68,7 +68,7 @@ or API routes.
 ## Storage: Home Assistant local, Google Sheet, Postgres - any combination
 
 Open **`/settings.html`** (served by the app itself - Ingress panel for the
-HA add-on, or `http://<host>:8080/settings.html` for plain Docker) and enter
+HA add-on, or `http://<host>:8086/settings.html` for plain Docker) and enter
 one of your `ADMIN_API_KEYS`. Check any combination of the three storage
 backends; each one's own config panel expands underneath:
 
@@ -221,7 +221,7 @@ that prebuilt image, so installing is just a `docker pull`, not a build.
    works in the plain Docker/docker-compose deployment. Sheets can be left
    blank here and connected later via "Connect with Google" in Settings
    instead.
-6. Start the add-on. It listens on port 8080 and exposes an Ingress panel -
+6. Start the add-on. It listens on port 8086 and exposes an Ingress panel -
    open it and finish anything left in **Settings** (`/settings.html`).
 7. Wire up your dashboard using `whatsapp_reminder_platform/dashboard-example.yaml`,
    which adapts your existing mushroom-card dashboard to call the new API
@@ -250,7 +250,7 @@ your own HA instance without extra configuration.
 ## Onboarding a new user (what makes this "scalable to others")
 
 ```bash
-curl -X POST https://your-host:8080/api/users \
+curl -X POST https://your-host:8086/api/users \
   -H "X-Api-Key: <ADMIN_API_KEYS value>" \
   -H "Content-Type: application/json" \
   -d '{"email":"friend@example.com","displayName":"A Friend"}'
@@ -261,15 +261,15 @@ The new user then:
 
 ```bash
 # 1. Connect a WhatsApp number (creates a fresh WAHA session)
-curl -X POST https://your-host:8080/api/numbers \
+curl -X POST https://your-host:8086/api/numbers \
   -H "X-Api-Key: <their apiKey>" -H "Content-Type: application/json" \
   -d '{"label":"Personal","phoneNumber":"96895537783","gateway":"waha"}'
 
 # 2. Get the QR code to scan in WhatsApp
-curl https://your-host:8080/api/numbers/<numberId>/qr -H "X-Api-Key: <their apiKey>"
+curl https://your-host:8086/api/numbers/<numberId>/qr -H "X-Api-Key: <their apiKey>"
 
 # 3. Create reminders
-curl -X POST https://your-host:8080/api/reminders \
+curl -X POST https://your-host:8086/api/reminders \
   -H "X-Api-Key: <their apiKey>" -H "Content-Type: application/json" \
   -d '{
         "numberId":"<numberId>",

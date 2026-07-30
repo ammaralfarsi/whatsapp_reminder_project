@@ -13,5 +13,6 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
-EXPOSE 8080
+COPY public ./public
+EXPOSE 8086
 CMD ["node", "dist/index.js"]

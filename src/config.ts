@@ -7,10 +7,10 @@ function required(name: string, fallback?: string): string {
   return v;
 }
 
-const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? `http://localhost:${process.env.PORT ?? 8080}`;
+const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? `http://localhost:${process.env.PORT ?? 8086}`;
 
 export const config = {
-  port: Number(process.env.PORT ?? 8080),
+  port: Number(process.env.PORT ?? 8086),
   publicBaseUrl,
   adminApiKeys: (process.env.ADMIN_API_KEYS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
 

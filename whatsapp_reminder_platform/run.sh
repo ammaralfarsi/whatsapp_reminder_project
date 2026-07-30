@@ -3,11 +3,37 @@
 # maps them onto the same env vars the plain Docker container / bare-metal
 # app reads (see .env.example), then starts the server.
 
-export PORT="8080"
+export PORT="8086"
+
+# Persist settings.json (Settings page: storage backend selection, Google
+# OAuth tokens, Postgres config), the ha_local JSON store, and the
+# auto-generated admin key below under the add-on's own persistent, editable
+# storage (config.yaml: `addon_config:rw`) so they survive add-on
+# updates/restarts.
+export DATA_DIR="/config/addon_config/data"
+mkdir -p "$DATA_DIR"
+
 # Gates the Settings page (storage backend selection, Postgres setup,
-# "Connect with Google") - without this set, nobody can use those admin
-# actions, so it's a required Configuration field (see config.yaml).
-export ADMIN_API_KEYS=$(bashio::config 'admin_api_keys')
+# "Connect with Google") - without a real value here, nobody can use those
+# admin actions. Leave the Configuration field blank and one is generated
+# for you on first boot, then reused on every restart after that (saved to
+# $DATA_DIR so it survives updates) - check this add-on's Log tab for the
+# one-time notice showing the generated value. Set the field yourself
+# instead if you'd rather pick your own.
+ADMIN_API_KEYS=$(bashio::config 'admin_api_keys')
+if [ -z "$ADMIN_API_KEYS" ]; then
+  ADMIN_KEY_FILE="$DATA_DIR/admin_api_key.txt"
+  if [ -f "$ADMIN_KEY_FILE" ]; then
+    ADMIN_API_KEYS=$(cat "$ADMIN_KEY_FILE")
+  else
+    ADMIN_API_KEYS=$(cat /proc/sys/kernel/random/uuid)
+    echo -n "$ADMIN_API_KEYS" > "$ADMIN_KEY_FILE"
+    bashio::log.notice "No admin_api_keys set - generated one for you: ${ADMIN_API_KEYS}"
+    bashio::log.notice "Paste that into the box at the top of the Settings page (/settings.html) to unlock storage/Postgres/Google setup. It won't be shown again after this first boot - re-check this Log tab, or set your own value in Configuration, if you lose it."
+  fi
+fi
+export ADMIN_API_KEYS
+
 # "postgres+sheets+ha_local"-style combo values (see config.yaml's schema)
 # become the comma-separated list src/config.ts expects.
 export STORAGE_BACKENDS=$(bashio::config 'storage_backends' | sed 's/+/,/g')
@@ -22,22 +48,15 @@ export HA_NOTIFY_WEBHOOK_URL=$(bashio::config 'ha_notify_webhook_url')
 export SCHEDULER_CRON=$(bashio::config 'scheduler_cron')
 export DEFAULT_FOOTER_TEMPLATE=$(bashio::config 'default_footer_template')
 
-# Persist settings.json (Settings page: storage backend selection, Google
-# OAuth tokens, Postgres config) and the ha_local JSON store under the
-# add-on's own persistent, editable storage (config.yaml: `addon_config:rw`)
-# so they survive add-on updates/restarts.
-export DATA_DIR="/config/addon_config/data"
-mkdir -p "$DATA_DIR"
-
 # Used to build the Google OAuth redirect URI (must exactly match an
 # "Authorized redirect URI" in the Google Cloud OAuth client, so it can't be
 # auto-detected reliably here - see README's "Google OAuth setup" section).
 # Defaults to localhost, which only works if you access this add-on's UI
 # from the same machine; set the `public_base_url` add-on option to your
-# real HA URL (e.g. https://ha.example.com:8080) to use "Connect with
+# real HA URL (e.g. https://ha.example.com:8086) to use "Connect with
 # Google" from elsewhere.
 PUBLIC_BASE_URL=$(bashio::config 'public_base_url')
-export PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-http://localhost:8080}"
+export PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-http://localhost:8086}"
 
 # --- Postgres: fields instead of a hand-built URL ---
 # Priority: an explicit `database_url` (advanced override) always wins;
