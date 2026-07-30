@@ -17,7 +17,12 @@ export interface StorageAdapter {
   getUserById(id: string): Promise<User | null>;
   getUserByApiKey(apiKey: string): Promise<User | null>;
   getUserByEmail(email: string): Promise<User | null>;
+  /** Look up a user by their linked Home Assistant person ID (see
+   * User.haUserId) - powers auto-recognition via Ingress headers. */
+  getUserByHaUserId(haUserId: string): Promise<User | null>;
   listUsers(): Promise<User[]>;
+  /** Currently only used to link/unlink a Home Assistant person (haUserId). */
+  updateUser(user: User): Promise<void>;
 
   // --- WhatsApp numbers / sessions ---
   createNumber(num: WhatsAppNumber): Promise<void>;
@@ -28,6 +33,7 @@ export interface StorageAdapter {
   // --- Reminders ---
   createReminder(reminder: Reminder): Promise<void>;
   updateReminder(reminder: Reminder): Promise<void>;
+  deleteReminder(id: string): Promise<void>;
   getReminderById(id: string): Promise<Reminder | null>;
   listDueReminders(now: Date): Promise<Reminder[]>;
   listRemindersForUser(userId: string): Promise<Reminder[]>;

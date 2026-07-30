@@ -46,6 +46,18 @@ export class Scheduler {
     await this.storage.moveDoneReminders().catch((err) => console.error("[scheduler] moveDoneReminders failed:", err));
   }
 
+  /** Sends a reminder right away, ignoring its scheduled triggerAt - the
+   * "Send now" button in reminder.html. Reuses the exact same send path the
+   * cron tick uses (typing indicator, template rendering, HA webhook,
+   * recurrence), so the outcome (sent/error, next occurrence if recurring)
+   * is identical either way. */
+  async sendNow(reminderId: string): Promise<Reminder> {
+    const reminder = await this.storage.getReminderById(reminderId);
+    if (!reminder) throw new Error("Reminder not found");
+    await this.processReminder(reminder);
+    return (await this.storage.getReminderById(reminderId)) ?? reminder;
+  }
+
   private async processReminder(reminder: Reminder) {
     const number = await this.storage.getNumberById(reminder.numberId);
     if (!number) {

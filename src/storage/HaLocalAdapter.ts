@@ -70,8 +70,17 @@ export class HaLocalAdapter implements StorageAdapter {
   async getUserByEmail(email: string): Promise<User | null> {
     return this.data.users.find((u) => u.email === email) ?? null;
   }
+  async getUserByHaUserId(haUserId: string): Promise<User | null> {
+    return this.data.users.find((u) => u.haUserId === haUserId) ?? null;
+  }
   async listUsers(): Promise<User[]> {
     return [...this.data.users];
+  }
+  async updateUser(user: User): Promise<void> {
+    const i = this.data.users.findIndex((u) => u.id === user.id);
+    if (i === -1) throw new Error(`ha_local: user ${user.id} not found`);
+    this.data.users[i] = user;
+    await this.persist();
   }
 
   // --- WhatsApp numbers ---
@@ -101,6 +110,10 @@ export class HaLocalAdapter implements StorageAdapter {
     const i = this.data.reminders.findIndex((r) => r.id === reminder.id);
     if (i === -1) throw new Error(`ha_local: reminder ${reminder.id} not found`);
     this.data.reminders[i] = reminder;
+    await this.persist();
+  }
+  async deleteReminder(id: string): Promise<void> {
+    this.data.reminders = this.data.reminders.filter((r) => r.id !== id);
     await this.persist();
   }
   async getReminderById(id: string): Promise<Reminder | null> {

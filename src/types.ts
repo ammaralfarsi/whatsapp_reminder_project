@@ -8,6 +8,11 @@ export interface User {
   displayName: string;
   apiKey: string; // per-user API key, used by the mobile app / HA / webhooks
   createdAt: string; // ISO timestamp
+  /** Optional: this user's Home Assistant person ID (X-Remote-User-Id, sent
+   * by Supervisor's Ingress proxy). When set, opening the app via the
+   * Ingress panel/sidebar recognizes this user automatically - no API key
+   * needed there. Set from Settings -> Users. */
+  haUserId?: string;
 }
 
 /**

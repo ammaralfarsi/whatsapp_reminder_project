@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { StorageAdapter } from "../../storage/StorageAdapter";
 import { requireUser, AuthedRequest } from "../../auth/apiKeyAuth";
 import { Reminder, RecurrenceFrequency } from "../../types";
+import { Scheduler } from "../../reminders/scheduler";
 
 /**
  * CRUD for reminders, plus a payload shape compatible with both the old
@@ -16,6 +17,7 @@ import { Reminder, RecurrenceFrequency } from "../../types";
 export function remindersRouter(storage: StorageAdapter): Router {
   const router = Router();
   const auth = requireUser(storage);
+  const scheduler = new Scheduler(storage);
 
   router.post("/reminders", auth, async (req: AuthedRequest, res) => {
     const body = req.body ?? {};
@@ -76,9 +78,46 @@ export function remindersRouter(storage: StorageAdapter): Router {
       recipient: patch.recipient ? String(patch.recipient).replace(/\D/g, "") : reminder.recipient,
       triggerAt: patch.triggerDateTime || patch.dateTime || patch.triggerAt ? parseFlexibleDate(patch.triggerDateTime ?? patch.dateTime ?? patch.triggerAt).toISOString() : reminder.triggerAt,
       status: patch.status ?? reminder.status,
+      movedToDone: typeof patch.movedToDone === "boolean" ? patch.movedToDone : reminder.movedToDone,
     });
     await storage.updateReminder(reminder);
     res.json(reminder);
+  });
+
+  // Archive / restore - a manual version of what the scheduler already does
+  // automatically for sent, non-recurring reminders (moveDoneReminders()).
+  router.post("/reminders/:id/archive", auth, async (req: AuthedRequest, res) => {
+    const reminder = await storage.getReminderById(req.params.id);
+    if (!reminder || reminder.userId !== req.user!.id) return res.status(404).json({ error: "Not found" });
+    reminder.movedToDone = true;
+    await storage.updateReminder(reminder);
+    res.json(reminder);
+  });
+  router.post("/reminders/:id/unarchive", auth, async (req: AuthedRequest, res) => {
+    const reminder = await storage.getReminderById(req.params.id);
+    if (!reminder || reminder.userId !== req.user!.id) return res.status(404).json({ error: "Not found" });
+    reminder.movedToDone = false;
+    await storage.updateReminder(reminder);
+    res.json(reminder);
+  });
+
+  // Send immediately, ignoring the scheduled time - see Scheduler.sendNow().
+  router.post("/reminders/:id/send-now", auth, async (req: AuthedRequest, res) => {
+    const reminder = await storage.getReminderById(req.params.id);
+    if (!reminder || reminder.userId !== req.user!.id) return res.status(404).json({ error: "Not found" });
+    try {
+      const updated = await scheduler.sendNow(req.params.id);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.delete("/reminders/:id", auth, async (req: AuthedRequest, res) => {
+    const reminder = await storage.getReminderById(req.params.id);
+    if (!reminder || reminder.userId !== req.user!.id) return res.status(404).json({ error: "Not found" });
+    await storage.deleteReminder(req.params.id);
+    res.status(204).end();
   });
 
   return router;

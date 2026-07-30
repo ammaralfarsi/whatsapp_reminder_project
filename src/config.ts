@@ -11,6 +11,8 @@ const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? `http://localhost:${process
 
 export const config = {
   port: Number(process.env.PORT ?? 8086),
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  appVersion: (require("../package.json").version as string) ?? "0.0.0",
   publicBaseUrl,
   adminApiKeys: (process.env.ADMIN_API_KEYS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
 

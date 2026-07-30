@@ -44,7 +44,12 @@ export class MultiStorage implements StorageAdapter {
   getUserById(id: string) { return this.primary.getUserById(id); }
   getUserByApiKey(apiKey: string) { return this.primary.getUserByApiKey(apiKey); }
   getUserByEmail(email: string) { return this.primary.getUserByEmail(email); }
+  getUserByHaUserId(haUserId: string) { return this.primary.getUserByHaUserId(haUserId); }
   listUsers() { return this.primary.listUsers(); }
+  async updateUser(user: User): Promise<void> {
+    await this.primary.updateUser(user);
+    await this.fanOut((a) => a.updateUser(user));
+  }
 
   async createNumber(num: WhatsAppNumber): Promise<void> {
     await this.primary.createNumber(num);
@@ -64,6 +69,10 @@ export class MultiStorage implements StorageAdapter {
   async updateReminder(reminder: Reminder): Promise<void> {
     await this.primary.updateReminder(reminder);
     await this.fanOut((a) => a.updateReminder(reminder));
+  }
+  async deleteReminder(id: string): Promise<void> {
+    await this.primary.deleteReminder(id);
+    await this.fanOut((a) => a.deleteReminder(id));
   }
   getReminderById(id: string) { return this.primary.getReminderById(id); }
   listDueReminders(now: Date) { return this.primary.listDueReminders(now); }

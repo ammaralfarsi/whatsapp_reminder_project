@@ -5,6 +5,37 @@ here. Home Assistant's Supervisor reads this file directly and shows it on
 the add-on's info page, so keep it in sync with `version:` in `config.yaml`
 - bump one, add an entry here.
 
+## 1.3.0
+
+- **Reminders can now be managed, not just created**: `/reminder.html` shows
+  an Active/Archived list below the form - edit, delete, **Send now**
+  (bypasses the scheduled time, reuses the exact same send path as the
+  cron scheduler), and archive/restore (the same `movedToDone` flag the
+  scheduler already sets automatically for sent, non-recurring reminders).
+  New endpoints: `DELETE /api/reminders/:id`,
+  `POST /api/reminders/:id/send-now`, `.../archive`, `.../unarchive`.
+- **Home Assistant person auto-recognition**: link a user to their HA
+  account (Settings -> Users - paste their HA user ID, shown via the new
+  `GET /api/ha-context`) and opening `/reminder.html` through the HA
+  sidebar/Ingress panel logs them in automatically, no API key needed there
+  (`X-Remote-User-Id`, which Supervisor's Ingress proxy already sends -
+  `requireUser()` now falls back to it when no `X-Api-Key` is present).
+  Direct/external access still requires the personal key as before. New
+  `PATCH /api/users/:id` (admin) to link/unlink; `User.haUserId` added
+  across every storage backend (Postgres migration
+  `002_ha_user_id.sql`, Sheets `Users` tab gets a new column, HA-local/
+  Multi/Live storage updated to match).
+
+## 1.2.0
+
+- Added a footer to Settings and `/reminder.html`: "Developed by: Ammar Al
+  Farsi", the running version (new public `GET /api/version`, backed by
+  `package.json`, now kept in sync with `config.yaml` on every bump), and a
+  GitHub link icon.
+- Added `webui` to `config.yaml`, so the add-on's Info tab gets an "Open Web
+  UI" button that opens the app in its own new browser tab, separate from
+  the embedded sidebar panel.
+
 ## 1.1.9
 
 - Clearer error when the admin key is pasted into a per-user field (like

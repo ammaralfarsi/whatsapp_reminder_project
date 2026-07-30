@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-reminder-platform",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "Multi-tenant WhatsApp reminder scheduler. Multiple users, multiple WhatsApp numbers per user, pluggable storage (Google Sheets and/or PostgreSQL), pluggable WhatsApp gateway (WAHA and/or ha-whatsapp), Docker container or Home Assistant add-on.",
   "private": true,
   "license": "MIT",

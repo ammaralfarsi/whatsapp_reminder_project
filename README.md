@@ -317,6 +317,22 @@ existing `whatsapp_reminder_platform/dashboard-example.yaml` Lovelace card
 keeps working exactly as before and hits the same endpoint; use whichever's
 handier.
 
+The page also lists **Your reminders** (Active / Archived tabs) below the
+form - edit, delete, **Send now** (ignores the scheduled time), and
+archive/restore, all without leaving the page. "Archived" is the same
+`movedToDone` flag the scheduler already sets automatically for sent,
+non-recurring reminders; archiving/restoring by hand just flips it early or
+back.
+
+**No API key at all, if opened from Home Assistant's sidebar:** in Settings
+-> Users, paste a person's Home Assistant user ID (shown for whoever's
+currently logged in via `GET /api/ha-context`, also surfaced right there in
+Settings) into their "Home Assistant user ID" field and Save. After that,
+opening `/reminder.html` via the HA sidebar/Ingress panel recognizes them
+automatically (Supervisor's Ingress proxy sends `X-Remote-User-Id` - see
+`requireUser()` in `src/auth/apiKeyAuth.ts`). Opening the app any other way
+(direct port, external URL) still needs the personal API key as before.
+
 ## Migrating from the old spreadsheet
 
 Your existing `Reminders` tab (S/N, Timestamp, Date of Reminder, Reminder To,

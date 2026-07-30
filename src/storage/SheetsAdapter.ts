@@ -25,7 +25,7 @@ const TABS = {
 };
 
 const HEADERS: Record<string, string[]> = {
-  [TABS.users]: ["id", "email", "display_name", "api_key", "created_at"],
+  [TABS.users]: ["id", "email", "display_name", "api_key", "created_at", "ha_user_id"],
   [TABS.numbers]: ["id", "user_id", "label", "phone_number", "gateway", "session_id", "status", "created_at"],
   [TABS.reminders]: [
     "id", "user_id", "number_id", "recipient", "message", "trigger_at", "recurring", "frequency",
@@ -145,7 +145,8 @@ export class SheetsAdapter implements StorageAdapter {
   // --- Users ---
   async createUser(user: User): Promise<void> {
     await this.appendRow(TABS.users, {
-      id: user.id, email: user.email, display_name: user.displayName, api_key: user.apiKey, created_at: user.createdAt,
+      id: user.id, email: user.email, display_name: user.displayName, api_key: user.apiKey,
+      created_at: user.createdAt, ha_user_id: user.haUserId ?? "",
     });
   }
   async getUserById(id: string): Promise<User | null> {
@@ -160,11 +161,22 @@ export class SheetsAdapter implements StorageAdapter {
     const users = await this.listUsers();
     return users.find((u) => u.email === email) ?? null;
   }
+  async getUserByHaUserId(haUserId: string): Promise<User | null> {
+    const users = await this.listUsers();
+    return users.find((u) => u.haUserId === haUserId) ?? null;
+  }
   async listUsers(): Promise<User[]> {
     const { header, rows } = await this.readTab(TABS.users);
     return this.toObjects(header, rows).map((o) => ({
       id: o.id, email: o.email, displayName: o.display_name, apiKey: o.api_key, createdAt: o.created_at,
+      haUserId: o.ha_user_id || undefined,
     }));
+  }
+  async updateUser(user: User): Promise<void> {
+    await this.updateRowById(TABS.users, user.id, {
+      id: user.id, email: user.email, display_name: user.displayName, api_key: user.apiKey,
+      created_at: user.createdAt, ha_user_id: user.haUserId ?? "",
+    });
   }
 
   // --- Numbers ---
@@ -202,6 +214,21 @@ export class SheetsAdapter implements StorageAdapter {
   }
   async updateReminder(reminder: Reminder): Promise<void> {
     await this.updateRowById(TABS.reminders, reminder.id, this.reminderToObj(reminder));
+  }
+  async deleteReminder(id: string): Promise<void> {
+    // Sheets has no per-row delete via the values API without knowing the
+    // underlying sheetId/gid, so this clears the row's id (making it
+    // invisible to toObjects, which filters on a truthy first column)
+    // rather than leaving a real gap - simplest safe option here.
+    const { header, rows } = await this.readTab(TABS.reminders);
+    const idIdx = header.indexOf("id");
+    const rowIdx = rows.findIndex((r) => r[idIdx] === id);
+    if (rowIdx === -1) return;
+    const rowNumber = rowIdx + 2;
+    await this.api.spreadsheets.values.clear({
+      spreadsheetId: this.spreadsheetId,
+      range: `${TABS.reminders}!A${rowNumber}:Z${rowNumber}`,
+    });
   }
   async getReminderById(id: string): Promise<Reminder | null> {
     const { header, rows } = await this.readTab(TABS.reminders);

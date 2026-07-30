@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { StorageAdapter } from "../storage/StorageAdapter";
+import { config } from "../config";
 import { usersRouter } from "./routes/users";
 import { numbersRouter } from "./routes/numbers";
 import { remindersRouter } from "./routes/reminders";
@@ -16,6 +17,9 @@ export function createServer(storage: StorageAdapter) {
   app.use(express.json({ limit: "1mb" }));
 
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
+  // Public, unauthenticated - just so the UI's footer can show the running
+  // version without needing an API key.
+  app.get("/api/version", (_req, res) => res.json({ version: config.appVersion }));
 
   // The Ingress panel (and a bare http://<host>:8086/) lands on "/" - there
   // was no route for it and no public/index.html, so express.static fell

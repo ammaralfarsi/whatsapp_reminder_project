@@ -71,6 +71,22 @@
   }
   .numbers-head { display: flex; justify-content: space-between; align-items: center; }
   .numbers-head strong { font-size: 14px; }
+  .app-footer {
+    max-width: 480px; margin: 0 auto; padding: 8px 16px 30px; display: flex; align-items: center;
+    justify-content: center; gap: 10px; color: var(--muted); font-size: 12px;
+  }
+  .app-footer a { color: var(--muted); display: flex; align-items: center; line-height: 0; }
+  .app-footer svg { width: 16px; height: 16px; fill: currentColor; }
+  #tabActive.active, #tabArchived.active { background: var(--wa-green); color: white; border-color: var(--wa-green); }
+  .reminder-row { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .reminder-row .msg { font-size: 13.5px; margin-bottom: 4px; }
+  .reminder-row .meta { font-size: 12px; color: var(--muted); }
+  .reminder-row .badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; margin-left: 6px; }
+  .badge-pending { background: #eef1f4; color: #555; }
+  .badge-sent { background: #e6f7ec; color: #1b873f; }
+  .badge-error { background: #fdeaea; color: #c0392b; }
+  .reminder-row .actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .reminder-row .actions button { margin: 0; padding: 5px 9px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -153,10 +169,30 @@
       </select>
     </div>
 
-    <button class="primary" type="submit">Add reminder</button>
+    <button class="primary" type="submit" id="btnSubmitReminder">Add reminder</button>
+    <button type="button" class="secondary" id="btnCancelEdit" style="display:none;">Cancel edit</button>
     <div class="status-line" id="status"></div>
   </form>
+
+  <div class="card" id="remindersCard" style="display:none;">
+    <div class="numbers-head">
+      <strong>Your reminders</strong>
+      <div>
+        <button type="button" class="secondary" id="tabActive">Active</button>
+        <button type="button" class="secondary" id="tabArchived">Archived</button>
+      </div>
+    </div>
+    <div id="reminderList" style="margin-top:12px;"></div>
+  </div>
 </main>
+
+<footer class="app-footer">
+  <span>Developed by: Ammar Al Farsi</span>
+  <span id="footerVersion"></span>
+  <a href="https://github.com/ammaralfarsi/whatsapp_reminder_project" target="_blank" rel="noopener" title="View on GitHub">
+    <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+  </a>
+</footer>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -164,12 +200,16 @@ const apiKeyInput = $('apiKey');
 apiKeyInput.value = localStorage.getItem('userApiKey') || '';
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    ...opts,
-    headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKeyInput.value, ...(opts.headers || {}) },
-  });
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (apiKeyInput.value) headers['X-Api-Key'] = apiKeyInput.value;
+  const res = await fetch(path, { ...opts, headers });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || `${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    const err = new Error(body.error || `${res.status} ${res.statusText}`);
+    err.haUserId = body.haUserId;
+    err.haUserName = body.haUserName;
+    throw err;
+  }
   return body;
 }
 
@@ -185,21 +225,46 @@ async function refreshNumbers() {
   return numbers;
 }
 
+async function proceedUnlocked() {
+  const numbers = await refreshNumbers();
+  $('gate').style.display = 'none';
+  $('numbersCard').style.display = 'block';
+  if (!numbers.length) $('addNumberForm').style.display = 'block';
+  await loadReminders();
+}
+
 async function unlock() {
   if (!apiKeyInput.value) return;
   try {
     await api('/api/me'); // validates the key
     localStorage.setItem('userApiKey', apiKeyInput.value);
-    const numbers = await refreshNumbers();
-    $('gate').style.display = 'none';
-    $('numbersCard').style.display = 'block';
-    if (!numbers.length) $('addNumberForm').style.display = 'block';
+    await proceedUnlocked();
   } catch (err) {
     $('gate').querySelector('p').textContent = 'Invalid API key: ' + err.message;
   }
 }
 
 apiKeyInput.addEventListener('change', unlock);
+
+/** If opened from Home Assistant's sidebar/Ingress and this HA person is
+ * linked to an app user (Settings -> Users), skip the API key box entirely -
+ * see requireUser()'s ingress fallback in src/auth/apiKeyAuth.ts. */
+async function tryIngressAutoLogin() {
+  if (apiKeyInput.value) return false; // a manual key is already set, don't override it
+  try {
+    await api('/api/me');
+    await proceedUnlocked();
+    return true;
+  } catch (err) {
+    if (err.haUserId) {
+      $('gate').querySelector('p').innerHTML =
+        `Logged into Home Assistant as <b>${err.haUserName || err.haUserId}</b>, but no app user is linked yet. ` +
+        `Ask the admin to link it in Settings -&gt; Users (your HA user ID: <code>${err.haUserId}</code>), ` +
+        `or enter your personal API key above instead.`;
+    }
+    return false;
+  }
+}
 
 $('btnToggleAddNumber').addEventListener('click', () => {
   const showing = $('addNumberForm').style.display !== 'none';
@@ -293,33 +358,134 @@ document.querySelectorAll('input[name=recurrence]').forEach((r) => {
   });
 });
 
+let editingReminderId = null;
+
+function startEdit(r) {
+  editingReminderId = r.id;
+  $('numberId').value = r.numberId;
+  $('recipient').value = r.recipient;
+  $('message').value = r.message;
+  $('triggerDateTime').value = r.triggerAt ? r.triggerAt.slice(0, 16) : '';
+  document.querySelector(`input[name=recurrence][value="${r.recurring ? 'Yes' : 'No'}"]`).checked = true;
+  $('frequencyRow').style.display = r.recurring ? 'block' : 'none';
+  if (r.frequency && r.frequency !== 'none') $('frequency').value = r.frequency;
+  $('btnSubmitReminder').textContent = 'Save changes';
+  $('btnCancelEdit').style.display = 'inline-block';
+  $('form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function stopEdit() {
+  editingReminderId = null;
+  $('form').reset();
+  $('frequencyRow').style.display = 'none';
+  $('btnSubmitReminder').textContent = 'Add reminder';
+  $('btnCancelEdit').style.display = 'none';
+}
+$('btnCancelEdit').addEventListener('click', stopEdit);
+
 $('form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const status = $('status');
-  status.textContent = 'Sending...';
+  status.textContent = editingReminderId ? 'Saving...' : 'Sending...';
   status.className = 'status-line';
+  const payload = {
+    numberId: $('numberId').value,
+    recipient: $('recipient').value,
+    message: $('message').value,
+    triggerDateTime: $('triggerDateTime').value,
+    recurrence: document.querySelector('input[name=recurrence]:checked').value,
+    frequency: $('frequency').value,
+  };
   try {
-    await api('/api/reminders', {
-      method: 'POST',
-      body: JSON.stringify({
-        numberId: $('numberId').value,
-        recipient: $('recipient').value,
-        message: $('message').value,
-        triggerDateTime: $('triggerDateTime').value,
-        recurrence: document.querySelector('input[name=recurrence]:checked').value,
-        frequency: $('frequency').value,
-      }),
-    });
-    status.textContent = 'Reminder added.';
+    if (editingReminderId) {
+      await api(`/api/reminders/${editingReminderId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      status.textContent = 'Reminder updated.';
+    } else {
+      await api('/api/reminders', { method: 'POST', body: JSON.stringify(payload) });
+      status.textContent = 'Reminder added.';
+    }
     status.className = 'status-line status-ok';
-    e.target.reset();
+    stopEdit();
+    await loadReminders();
   } catch (err) {
     status.textContent = err.message;
     status.className = 'status-line status-bad';
   }
 });
 
-unlock();
+let reminderTab = 'active';
+function badgeClass(status) {
+  return status === 'sent' ? 'badge-sent' : status === 'error' ? 'badge-error' : 'badge-pending';
+}
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleString(); } catch { return iso; }
+}
+
+async function loadReminders() {
+  try {
+    const reminders = await api('/api/reminders');
+    const filtered = reminders
+      .filter((r) => (reminderTab === 'archived' ? r.movedToDone : !r.movedToDone))
+      .sort((a, b) => new Date(b.triggerAt) - new Date(a.triggerAt));
+    $('remindersCard').style.display = 'block';
+    $('reminderList').innerHTML = filtered.length
+      ? filtered.map((r) => `
+          <div class="reminder-row" data-id="${r.id}">
+            <div class="msg">${escapeHtml(r.message)}<span class="badge ${badgeClass(r.status)}">${r.status}</span></div>
+            <div class="meta">To ${r.recipient} &middot; ${fmtDate(r.triggerAt)}${r.recurring ? ' &middot; recurring (' + r.frequency + ')' : ''}</div>
+            <div class="actions">
+              ${reminderTab === 'active' ? `
+                <button type="button" class="secondary" data-act="edit">Edit</button>
+                <button type="button" class="secondary" data-act="send-now">Send now</button>
+                <button type="button" class="secondary" data-act="archive">Archive</button>
+              ` : `
+                <button type="button" class="secondary" data-act="unarchive">Restore</button>
+              `}
+              <button type="button" class="secondary" data-act="delete">Delete</button>
+            </div>
+          </div>`).join('')
+      : `<p class="hint">${reminderTab === 'archived' ? 'No archived reminders.' : 'No active reminders yet.'}</p>`;
+
+    $('reminderList').querySelectorAll('.reminder-row').forEach((row) => {
+      const id = row.dataset.id;
+      const reminder = reminders.find((r) => r.id === id);
+      row.querySelectorAll('button[data-act]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const action = btn.dataset.act;
+          try {
+            if (action === 'edit') return startEdit(reminder);
+            if (action === 'delete') {
+              if (!confirm('Delete this reminder?')) return;
+              await api(`/api/reminders/${id}`, { method: 'DELETE' });
+            } else {
+              btn.textContent = '...';
+              await api(`/api/reminders/${id}/${action}`, { method: 'POST' });
+            }
+            await loadReminders();
+          } catch (err) {
+            alert(err.message);
+          }
+        });
+      });
+    });
+  } catch (err) {
+    $('reminderList').innerHTML = `<p class="hint">${err.message}</p>`;
+  }
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+$('tabActive').addEventListener('click', () => { reminderTab = 'active'; $('tabActive').classList.add('active'); $('tabArchived').classList.remove('active'); loadReminders(); });
+$('tabArchived').addEventListener('click', () => { reminderTab = 'archived'; $('tabArchived').classList.add('active'); $('tabActive').classList.remove('active'); loadReminders(); });
+$('tabActive').classList.add('active');
+
+tryIngressAutoLogin().then((ok) => { if (!ok) unlock(); });
+
+fetch('/api/version').then((r) => r.json()).then((b) => { $('footerVersion').textContent = '· v' + b.version + ' ·'; }).catch(() => {});
 </script>
 </body>
 </html>

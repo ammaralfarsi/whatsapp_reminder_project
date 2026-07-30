@@ -20,7 +20,9 @@ export class LiveStorage implements StorageAdapter {
   async getUserById(id: string) { return (await this.getCurrent()).getUserById(id); }
   async getUserByApiKey(apiKey: string) { return (await this.getCurrent()).getUserByApiKey(apiKey); }
   async getUserByEmail(email: string) { return (await this.getCurrent()).getUserByEmail(email); }
+  async getUserByHaUserId(haUserId: string) { return (await this.getCurrent()).getUserByHaUserId(haUserId); }
   async listUsers() { return (await this.getCurrent()).listUsers(); }
+  async updateUser(user: User) { return (await this.getCurrent()).updateUser(user); }
 
   async createNumber(num: WhatsAppNumber) { return (await this.getCurrent()).createNumber(num); }
   async updateNumber(num: WhatsAppNumber) { return (await this.getCurrent()).updateNumber(num); }
@@ -29,6 +31,7 @@ export class LiveStorage implements StorageAdapter {
 
   async createReminder(reminder: Reminder) { return (await this.getCurrent()).createReminder(reminder); }
   async updateReminder(reminder: Reminder) { return (await this.getCurrent()).updateReminder(reminder); }
+  async deleteReminder(id: string) { return (await this.getCurrent()).deleteReminder(id); }
   async getReminderById(id: string) { return (await this.getCurrent()).getReminderById(id); }
   async listDueReminders(now: Date) { return (await this.getCurrent()).listDueReminders(now); }
   async listRemindersForUser(userId: string) { return (await this.getCurrent()).listRemindersForUser(userId); }

@@ -22,9 +22,13 @@ export class PostgresAdapter implements StorageAdapter {
   // --- Users ---
   async createUser(user: User): Promise<void> {
     await this.pool.query(
-      `INSERT INTO users (id, email, display_name, api_key, created_at) VALUES ($1,$2,$3,$4,$5)`,
-      [user.id, user.email, user.displayName, user.apiKey, user.createdAt]
+      `INSERT INTO users (id, email, display_name, api_key, created_at, ha_user_id) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [user.id, user.email, user.displayName, user.apiKey, user.createdAt, user.haUserId ?? null]
     );
+  }
+
+  async updateUser(user: User): Promise<void> {
+    await this.pool.query(`UPDATE users SET ha_user_id = $2 WHERE id = $1`, [user.id, user.haUserId ?? null]);
   }
 
   async getUserById(id: string): Promise<User | null> {
@@ -39,6 +43,11 @@ export class PostgresAdapter implements StorageAdapter {
 
   async getUserByEmail(email: string): Promise<User | null> {
     const r = await this.pool.query(`SELECT * FROM users WHERE email = $1`, [email]);
+    return r.rows[0] ? rowToUser(r.rows[0]) : null;
+  }
+
+  async getUserByHaUserId(haUserId: string): Promise<User | null> {
+    const r = await this.pool.query(`SELECT * FROM users WHERE ha_user_id = $1`, [haUserId]);
     return r.rows[0] ? rowToUser(r.rows[0]) : null;
   }
 
@@ -96,6 +105,10 @@ export class PostgresAdapter implements StorageAdapter {
         reminder.movedToDone,
       ]
     );
+  }
+
+  async deleteReminder(id: string): Promise<void> {
+    await this.pool.query(`DELETE FROM reminders WHERE id = $1`, [id]);
   }
 
   async getReminderById(id: string): Promise<Reminder | null> {
@@ -159,6 +172,7 @@ function rowToUser(row: any): User {
     displayName: row.display_name,
     apiKey: row.api_key,
     createdAt: new Date(row.created_at).toISOString(),
+    haUserId: row.ha_user_id ?? undefined,
   };
 }
 

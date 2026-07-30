@@ -98,6 +98,12 @@
   .sheet-item:hover { background: #eef7f0; }
   .sheet-item.selected { background: var(--wa-green); color: white; }
   code.small { font-size: 12px; background: #eee; padding: 2px 5px; border-radius: 4px; }
+  .app-footer {
+    max-width: 760px; margin: 0 auto; padding: 18px 16px 30px; display: flex; align-items: center;
+    justify-content: center; gap: 10px; color: var(--muted); font-size: 12px;
+  }
+  .app-footer a { color: var(--muted); display: flex; align-items: center; line-height: 0; }
+  .app-footer svg { width: 16px; height: 16px; fill: currentColor; }
   .user-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
   .user-row:last-child { border-bottom: none; }
   .user-row .who { min-width: 0; }
@@ -124,7 +130,8 @@
 
   <div class="card">
     <h2>Users</h2>
-    <p class="hint">The admin key above is only for this Settings page - it does not work in <a href="/reminder.html">+ New Reminder</a>. Each person needs their own user, created here, with their own personal API key.</p>
+    <p class="hint">The admin key above is only for this Settings page - it does not work in <a href="/reminder.html">+ New Reminder</a>. Each person needs their own user, created here, with their own personal API key. Optionally link a user to a Home Assistant account (below) so they don't need an API key at all when opening the app from the HA sidebar.</p>
+    <p class="hint" id="myHaContext"></p>
     <div id="userList" style="margin-bottom:10px;"></div>
     <label class="field">Email</label>
     <input type="text" id="newUserEmail" placeholder="friend@example.com" />
@@ -223,6 +230,14 @@
   </div>
 </main>
 
+<footer class="app-footer">
+  <span>Developed by: Ammar Al Farsi</span>
+  <span id="footerVersion"></span>
+  <a href="https://github.com/ammaralfarsi/whatsapp_reminder_project" target="_blank" rel="noopener" title="View on GitHub">
+    <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+  </a>
+</footer>
+
 <script>
 const $ = (id) => document.getElementById(id);
 const adminKeyInput = $('adminKey');
@@ -296,11 +311,15 @@ async function loadUsers() {
     const { body: users } = await api('/api/users');
     list.innerHTML = users.length
       ? users.map((u) => `
-          <div class="user-row">
+          <div class="user-row" style="flex-wrap:wrap;">
             <div class="who"><div class="name">${u.displayName}</div><div class="email">${u.email}</div></div>
             <div class="key-wrap">
               <code class="small" title="${u.apiKey}">${maskKey(u.apiKey)}</code>
               <button type="button" class="secondary" data-copy="${u.apiKey}">Copy key</button>
+            </div>
+            <div style="flex-basis:100%; display:flex; gap:6px; align-items:center; margin-top:6px;">
+              <input type="text" class="ha-link-input" data-user="${u.id}" placeholder="Home Assistant user ID (optional)" value="${u.haUserId ?? ''}" style="flex:1; font-size:12px; padding:5px 8px;" />
+              <button type="button" class="secondary" data-link="${u.id}">Save</button>
             </div>
           </div>`).join('')
       : '<p class="hint" style="margin:0;">No users yet - create the first one below.</p>';
@@ -311,8 +330,39 @@ async function loadUsers() {
         setTimeout(() => { btn.textContent = 'Copy key'; }, 1500);
       });
     });
+    list.querySelectorAll('button[data-link]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const userId = btn.dataset.link;
+        const haUserId = list.querySelector(`.ha-link-input[data-user="${userId}"]`).value.trim();
+        btn.textContent = 'Saving...';
+        try {
+          await api(`/api/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ haUserId }) });
+          btn.textContent = 'Saved!';
+        } catch (err) {
+          alert(err.message);
+          btn.textContent = 'Save';
+        }
+        setTimeout(() => { btn.textContent = 'Save'; }, 1500);
+      });
+    });
   } catch (err) {
     list.innerHTML = '';
+  }
+}
+
+async function loadMyHaContext() {
+  try {
+    const res = await fetch('/api/ha-context');
+    const ctx = await res.json();
+    if (!ctx.haUserId) {
+      $('myHaContext').textContent = '';
+      return;
+    }
+    $('myHaContext').innerHTML = ctx.linkedUser
+      ? `You're logged into Home Assistant as <b>${ctx.haUserName || ctx.haUserId}</b>, already linked to app user "${ctx.linkedUser.displayName}".`
+      : `You're logged into Home Assistant as <b>${ctx.haUserName || ctx.haUserId}</b> (ID: <code class="small">${ctx.haUserId}</code>) - not linked to an app user yet. Paste that ID into a user's "Home Assistant user ID" field below and Save.`;
+  } catch {
+    $('myHaContext').textContent = '';
   }
 }
 
@@ -471,12 +521,15 @@ $('btnSaveBackends').addEventListener('click', async () => {
 
 adminKeyInput.addEventListener('change', loadSettings);
 loadSettings();
+loadMyHaContext();
 
 // Coming back from the Google OAuth redirect.
 if (new URLSearchParams(location.search).get('google') === 'connected') {
   $('cb-sheets').checked = true;
   togglePanel('sheets', true);
 }
+
+fetch('/api/version').then((r) => r.json()).then((b) => { $('footerVersion').textContent = '· v' + b.version + ' ·'; }).catch(() => {});
 </script>
 </body>
 </html>

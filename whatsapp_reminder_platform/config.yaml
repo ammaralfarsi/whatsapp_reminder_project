@@ -1,5 +1,5 @@
 name: "WhatsApp Reminder Platform"
-version: "1.1.9"
+version: "1.3.0"
 slug: "whatsapp_reminder_platform"
 description: "Multi-user WhatsApp reminders via WAHA, with optional Postgres/Sheets storage."
 url: "https://github.com/ammaralfarsi/whatsapp_reminder_project"
@@ -16,6 +16,10 @@ startup: services
 boot: auto
 ingress: true
 ingress_port: 8086
+# Adds an "Open Web UI" button on the add-on's Info tab that opens the app
+# in its own new browser tab/window (direct port, not the embedded Ingress
+# panel) - separate from the sidebar panel, which stays embedded either way.
+webui: "http://[HOST]:[PORT:8086]/"
 panel_icon: mdi:whatsapp
 timeout: 300
 ports:
