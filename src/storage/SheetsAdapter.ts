@@ -1,8 +1,6 @@
 import { google, sheets_v4 } from "googleapis";
 import { StorageAdapter } from "./StorageAdapter";
 import { User, WhatsAppNumber, Reminder, FooterTemplate } from "../types";
-import { getOAuthClient } from "../auth/googleOAuth";
-import { GoogleOAuthTokens } from "../settings/types";
 
 /**
  * Google Sheets backend. Everything lives in ONE spreadsheet (so a single
@@ -39,43 +37,19 @@ export class SheetsAdapter implements StorageAdapter {
   private api!: sheets_v4.Sheets;
   private spreadsheetId: string;
   private keyFile: string;
-  private oauthTokens?: GoogleOAuthTokens;
 
   constructor(spreadsheetId: string, keyFile: string) {
     this.spreadsheetId = spreadsheetId;
     this.keyFile = keyFile;
   }
 
-  /**
-   * Alternative to the service-account constructor above: authorize using a
-   * refresh token obtained through the "Connect with Google" OAuth flow
-   * (src/auth/googleOAuth.ts + src/api/routes/integrations.ts) instead of a
-   * hand-created service account JSON key. This is what the Settings page's
-   * "Connect with Google" button wires up.
-   */
-  static fromOAuth(spreadsheetId: string, tokens: GoogleOAuthTokens): SheetsAdapter {
-    const adapter = new SheetsAdapter(spreadsheetId, "");
-    adapter.oauthTokens = tokens;
-    return adapter;
-  }
-
   async init(): Promise<void> {
-    const auth = this.oauthTokens
-      ? this.buildOAuthClient(this.oauthTokens)
-      : new google.auth.GoogleAuth({
-          keyFile: this.keyFile,
-          scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-        });
-    // `as any`: see the note in src/auth/googleOAuth.ts about googleapis's
-    // duplicate nested google-auth-library copies - harmless at runtime.
-    this.api = google.sheets({ version: "v4", auth: auth as any });
+    const auth = new google.auth.GoogleAuth({
+      keyFile: this.keyFile,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+    this.api = google.sheets({ version: "v4", auth });
     await this.ensureTabsAndHeaders();
-  }
-
-  private buildOAuthClient(tokens: GoogleOAuthTokens) {
-    const client = getOAuthClient();
-    client.setCredentials({ refresh_token: tokens.refreshToken });
-    return client;
   }
 
   private async ensureTabsAndHeaders() {

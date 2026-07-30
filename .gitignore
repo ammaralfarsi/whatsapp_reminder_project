@@ -3,6 +3,4 @@ dist/
 .env
 secrets/
 *.log
-# Runtime settings.json (Google OAuth tokens, Postgres credentials) and the
-# "Home Assistant local" JSON store - never commit these.
-data/
+*.tar.gz

@@ -8,26 +8,9 @@ src/
   storage/
     StorageAdapter.ts          interface every backend implements
     PostgresAdapter.ts         pg-backed implementation
-    SheetsAdapter.ts           googleapis-backed implementation (one spreadsheet, 4 tabs);
-                               authorizes via a service account OR an OAuth refresh token
-                               (SheetsAdapter.fromOAuth), see src/auth/googleOAuth.ts
-    HaLocalAdapter.ts          "Home Assistant local" - a single JSON file on disk, no
-                               external service at all
+    SheetsAdapter.ts           googleapis-backed implementation (one spreadsheet, 4 tabs)
     MultiStorage.ts            fans writes to N backends, reads from the first
-    LiveStorage.ts             forwards every call to whatever getStorage() currently
-                               returns - lets Settings swap backends with no restart
-    index.ts                   builds the active adapter(s) from settingsStore
-                               (any combination of postgres/sheets/ha_local);
-                               reloadStorage() rebuilds and swaps it live
-
-  settings/
-    types.ts                    AppSettings shape (enabled backends + per-backend config)
-    settingsStore.ts             DATA_DIR/settings.json - load/save/patch, seeded from
-                                  config.ts env vars on first boot only
-
-  auth/
-    apiKeyAuth.ts                per-user (X-Api-Key) and admin auth middleware
-    googleOAuth.ts               OAuth2 client + auth URL builder for "Connect with Google"
+    index.ts                   builds the active adapter from STORAGE_BACKENDS
 
   gateways/
     WhatsAppGateway.ts         interface every WhatsApp transport implements
@@ -42,32 +25,27 @@ src/
     templates.ts                per-user footer template rendering
     scheduler.ts                 node-cron loop: find due reminders, send, recur, notify HA
 
+  auth/
+    apiKeyAuth.ts                per-user (X-Api-Key) and admin auth middleware
+
   api/
-    server.ts                    express app assembly; also serves public/ as static files
+    server.ts                    express app assembly
     routes/users.ts               admin: create users; self: GET /api/me
     routes/numbers.ts             connect numbers, fetch QR, refresh status
     routes/reminders.ts           CRUD, Flutter/HA-compatible payload parsing
     routes/templates.ts           get/set footer template
-    routes/settings.ts            GET /api/settings, PUT /api/settings/backends (the multi-select)
-    routes/integrations.ts        Google OAuth connect/callback/spreadsheet picker
-    routes/postgresProvision.ts   Postgres Auto (dockerode) / Manual (+ test-connection)
 
   db/migrate.ts                  applies migrations/*.sql against DATABASE_URL
   index.ts                       bootstrap: init storage -> start API -> start scheduler
 
-public/
-  settings.html                  storage backend multi-select + per-backend config UI
-  reminder.html                  add a reminder from any browser (alternative to the Lovelace card)
-  favicon.png                    generated app icon, reused as the favicon for both pages
-
 migrations/001_init.sql          Postgres schema
 repository.yaml                  marks this repo as a Home Assistant add-on repository (required by Supervisor)
-whatsapp_reminder_platform/      the HA app (formerly "add-on") itself - config.yaml, Dockerfile, run.sh,
-                                  dashboard-example.yaml, icon.png/logo.png (add-on store tile).
-                                  No build.yaml - since Supervisor 2026.04.0 that file isn't read; the base image is
-                                  set directly via FROM in the Dockerfile instead. Self-contained: the Dockerfile
-                                  `git clone`s src/ + package.json from this same repo at build time, since the
-                                  Supervisor only gives it this one folder as context.
+.github/workflows/build-app-image.yml  builds the app image on GitHub's servers (not on-device) and publishes it to
+                                  GHCR on every push to main - see "Not built on-device" below
+whatsapp_reminder_platform/      the HA app (formerly "add-on") itself - config.yaml, Dockerfile, run.sh, dashboard-example.yaml.
+                                  No build.yaml - since Supervisor 2026.04.0 that file isn't read. config.yaml sets
+                                  `image: ghcr.io/ammaralfarsi/whatsapp-reminder-platform`, so Supervisor pulls the
+                                  CI-built image instead of building locally.
 Dockerfile, docker-compose.yml   plain container deployment (uses src/ directly, no cloning needed)
 ```
 
@@ -81,3 +59,17 @@ into the scheduling logic and become swappable pieces - hence
 `StorageAdapter` and `WhatsAppGateway`. `src/reminders/scheduler.ts` and
 `src/api/routes/*.ts` never import `pg`, `googleapis`, or `axios` directly;
 they only depend on the two interfaces.
+
+# Not built on-device
+
+The HA app used to build itself locally on the Supervisor: `git clone` the
+repo, `npm install`, compile TypeScript, all inside the Docker build step
+that runs on whatever device HA is on. On a Raspberry Pi 4 that ran the box
+out of RAM during install and hung it. `.github/workflows/build-app-image.yml`
+now does that same build on GitHub's runners instead, publishing a
+multi-arch image to GHCR; `whatsapp_reminder_platform/config.yaml`'s
+`image:` field tells Supervisor to pull that finished image rather than
+build anything itself. The app's Dockerfile still exists, but it's CI-only
+now - it expects a repo-root build context (which CI provides via
+`context: .` / `file: whatsapp_reminder_platform/Dockerfile`), not the
+single-folder context the Supervisor gives a local build.

@@ -12,11 +12,9 @@ and storage. Runs as a plain Docker container or as a Home Assistant add-on.
 | One hardcoded WAHA session (`"default"`) | One session per user per phone number, auto-created |
 | One shared Google Sheet, no user concept | Users table; every row scoped by `user_id` |
 | Hardcoded footer text in code | Per-user, editable footer template (`PUT /api/templates`) |
-| Sheets only | Sheets, Postgres and/or a local JSON store, any combination, togglable live from a Settings page |
+| Sheets only | Sheets and/or Postgres, togglable, can run both at once |
 | Apps Script triggers | `node-cron` scheduler inside the app (Docker or HA add-on) |
 | Single WAHA gateway | Gateway interface: WAHA (fully implemented) + ha-whatsapp (adapter stub, see caveats below) |
-| Google service account JSON | "Connect with Google" - OAuth redirect, no API console work |
-| Old Apps Script web form | `/reminder.html` - a small standalone page to add a reminder from any browser, plus the original Lovelace card |
 
 ## Architecture
 
@@ -64,60 +62,22 @@ or API routes.
 - **FooterTemplate** - per-user; the text appended after the reminder body.
   Supports `{{message}}` and any extra vars you pass in.
 
-## Storage: Home Assistant local, Google Sheet, Postgres - any combination
+## Storage: Sheets, Postgres, or both
 
-Open **`/settings.html`** (served by the app itself - Ingress panel for the
-HA add-on, or `http://<host>:8080/settings.html` for plain Docker) and enter
-one of your `ADMIN_API_KEYS`. Check any combination of the three storage
-backends; each one's own config panel expands underneath:
+Set `STORAGE_BACKENDS` in `.env`:
 
-- **Home Assistant local** - a JSON file on disk
-  (`src/storage/HaLocalAdapter.ts`), nothing to configure. Good default for
-  "one household, a handful of reminders."
-- **Google Sheet** - click **Connect with Google**, sign in on Google's own
-  consent screen, then either pick one of your existing spreadsheets or
-  create a new one from the list that appears. No API console, no service
-  account JSON - see "Google OAuth setup" below for the one-time step a
-  *deployer* (not each user) does to enable this button at all.
-- **Postgres** - recommended for real multi-user use:
-  - **Auto**: click **Create Postgres container** - generates a strong
-    password and starts a `postgres:16-alpine` container for you via the
-    Docker socket (if reachable - see the commented-out `docker.sock` mount
-    in `docker-compose.yml`). Without a reachable socket (the HA add-on
-    sandbox has none), you instead get a docker-compose block to paste in.
-  - **Manual**: fill in host/port/db/user/password for a Postgres you
-    already have (your own server, a managed one, the official HA
-    "PostgreSQL" add-on) - **Test connection** before saving.
-
-Check multiple boxes and **Save storage selection** to run more than one at
-once: writes fan out to every enabled backend, the first one you checked is
-primary for reads (mirrors mirrors, doesn't fail the request if a
-secondary write fails - see `MultiStorage`). Changes apply immediately, no
-restart - `src/storage/LiveStorage.ts` is what every route/the scheduler
-actually holds a reference to, so swapping the underlying adapter(s) takes
-effect on the very next request.
-
-Everything above is also settable via env vars for a fully scripted first
-boot (`STORAGE_BACKENDS`, `DATABASE_URL`, `GOOGLE_SHEETS_SPREADSHEET_ID`,
-`GOOGLE_SERVICE_ACCOUNT_KEY_FILE` - see `.env.example`); those are just the
-*bootstrap defaults* though; once the app has booted once, Settings
-(persisted to `DATA_DIR/settings.json`) is what's actually in charge.
-
-### Google OAuth setup (one-time, per deployment)
-
-To enable the **Connect with Google** button at all, whoever deploys this
-app creates one OAuth client (their end users never see this step):
-
-1. [Google Cloud Console](https://console.cloud.google.com/) -> a project ->
-   **APIs & Services -> Credentials -> Create Credentials -> OAuth client
-   ID -> Web application**.
-2. Under **Authorized redirect URIs**, add
-   `{PUBLIC_BASE_URL}/api/integrations/google/callback` (exactly matching
-   `PUBLIC_BASE_URL` in `.env`/the add-on's `public_base_url` option).
-3. Copy the Client ID and Client Secret into `GOOGLE_OAUTH_CLIENT_ID` /
-   `GOOGLE_OAUTH_CLIENT_SECRET`.
-4. If the OAuth consent screen is in "Testing" mode, add the Google
-   account(s) that will click Connect as test users (or publish the app).
+- `postgres` - Postgres only (recommended for real multi-user use; the bundled
+  `docker-compose.yml` includes a Postgres container and applies
+  `migrations/001_init.sql` automatically on first boot).
+- `sheets` - Google Sheets only, one spreadsheet with `Users` / `Numbers` /
+  `Reminders` / `Templates` tabs (auto-created on first run). Needs a service
+  account JSON with edit access to the sheet
+  (`GOOGLE_SERVICE_ACCOUNT_KEY_FILE`, `GOOGLE_SHEETS_SPREADSHEET_ID`).
+- `postgres,sheets` - both at once. Postgres is primary (used for reads and
+  for the scheduler's due-reminder scan); every write is mirrored into the
+  Sheet too, so it stays a live, human-editable copy. This is best-effort
+  dual-write, not a transaction - if the Sheets write fails it's logged but
+  doesn't fail the request.
 
 ## WhatsApp gateways: WAHA and ha-whatsapp
 
@@ -173,32 +133,47 @@ the Supervisor requires; a repo with `config.yaml` buried in a subfolder and
 no `repository.yaml` is what produces the "not a valid add-on repository"
 error.
 
-1. In HA: **Settings -> Add-ons -> Add-on Store -> ⋮ (top right) ->
+**The app is not built on-device.** Compiling TypeScript and running
+`npm install` at install time can exhaust RAM on a small device (this
+happened on a Raspberry Pi 4 during testing and hung the whole box).
+Instead, `.github/workflows/build-app-image.yml` builds a multi-arch
+(amd64 + arm64) image on GitHub's servers on every push to `main` and
+publishes it to GHCR; `config.yaml`'s `image:` field points Supervisor at
+that prebuilt image, so installing is just a `docker pull`, not a build.
+
+1. Push to `main` (or run the workflow manually from the **Actions** tab).
+   Wait for **Build and publish app image** to finish - check the Actions
+   tab on GitHub.
+2. **First time only:** the published package defaults to private, and
+   Supervisor can't authenticate to pull it. Go to your GitHub profile ->
+   **Packages** -> `whatsapp-reminder-platform` -> **Package settings** ->
+   change visibility to **Public**.
+3. In HA: **Settings -> Add-ons -> Add-on Store -> ⋮ (top right) ->
    Repositories**, and add your GitHub repo URL, e.g.
    `https://github.com/ammaralfarsi/whatsapp_reminder_project`. Click **Add**,
    then close and reopen the Add-on Store.
-2. "WhatsApp Reminder Platform" should now appear under a new "Ammar's
-   Add-ons" section. Install it.
-   - The add-on's Dockerfile builds by `git clone`-ing the app source
-     (`src/`, `package.json`, `migrations/`) from that same GitHub URL at
-     build time, since the Supervisor only gives the build access to the
-     `whatsapp_reminder_platform/` folder itself, not the rest of the repo.
-     If you rename or fork the repo, update `APP_REPO_URL` at the top of
-     `whatsapp_reminder_platform/Dockerfile` to match.
-3. Fill in the add-on's **Configuration** tab (storage backend, WAHA URL/key,
+4. "WhatsApp Reminder Platform" should now appear under a new "Ammar's
+   Add-ons" section. Install it - this pulls the image from GHCR instead of
+   building, so it should be fast and light even on a Pi.
+5. Fill in the add-on's **Configuration** tab (storage backend, WAHA URL/key,
    optional Postgres URL / Sheets spreadsheet ID).
-4. Start the add-on. It listens on port 8080 and exposes an Ingress panel.
-5. Wire up your dashboard using `whatsapp_reminder_platform/dashboard-example.yaml`,
+6. Start the add-on. It listens on port 8080 and exposes an Ingress panel.
+7. Wire up your dashboard using `whatsapp_reminder_platform/dashboard-example.yaml`,
    which adapts your existing mushroom-card dashboard to call the new API
    instead of the old Apps Script web app - same look, same helpers, new
    backend.
+
+Every time you bump `version:` in `whatsapp_reminder_platform/config.yaml`
+and push, CI publishes a new tag and HA will offer an update - there's no
+separate "rebuild" step to remember.
 
 If the repository still won't add: repo must be public (or added with a
 token HA can use), `repository.yaml` must sit at the repo root, and the
 add-on folder must contain `config.yaml` directly at its own root (not
 nested further) - all true here after this restructure, so a stale Supervisor
 cache is the next thing to check (⋮ -> Reload in the Add-on Store, or
-restart Supervisor).
+restart Supervisor). If install fails specifically on pulling the image,
+the GHCR package is probably still private - see step 2 above.
 
 The add-on defaults `HA_BASE_URL`/`HA_LONG_LIVED_TOKEN` to the internal
 Supervisor API, so `HA_NOTIFY_WEBHOOK_URL` and any `ha-whatsapp` calls reach
@@ -241,16 +216,6 @@ curl -X POST https://your-host:8080/api/reminders \
 Every user is fully isolated: separate numbers, separate sessions, separate
 reminders, separate footer template - all enforced by `userId` scoping in
 every storage query and by the `X-Api-Key` auth middleware.
-
-## Adding a reminder: web page, or the Lovelace card
-
-`/reminder.html` is a small standalone page (no Home Assistant needed) for
-adding a reminder from any browser or phone: enter your personal `X-Api-Key`
-once (kept in that browser's local storage), pick which connected number to
-send from, fill in recipient/message/time/recurrence, submit - it's just a
-thin form over `POST /api/reminders`. The existing
-`whatsapp_reminder_platform/dashboard-example.yaml` Lovelace card keeps
-working exactly as before and hits the same endpoint; use whichever's handier.
 
 ## Migrating from the old spreadsheet
 

@@ -11,15 +11,6 @@ services:
       - .env
     volumes:
       - ./secrets:/app/secrets:ro
-      # Persists settings.json (storage backend selection, Google OAuth
-      # tokens, Postgres config) and the "Home Assistant local" JSON store
-      # across container recreates.
-      - ./data:/app/data
-      # Optional: uncomment to let Settings -> Postgres -> Auto create a
-      # sibling postgres:16-alpine container for you via the Docker socket.
-      # Without this, Auto mode falls back to handing you a docker-compose
-      # block to paste in yourself.
-      # - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - postgres
 

@@ -1,8 +1,13 @@
 name: "WhatsApp Reminder Platform"
-version: "1.0.0"
+version: "1.0.1"
 slug: "whatsapp_reminder_platform"
 description: "Multi-user WhatsApp reminders via WAHA, with optional Postgres/Sheets storage."
 url: "https://github.com/ammaralfarsi/whatsapp_reminder_project"
+# Prebuilt multi-arch image, published by .github/workflows/build-app-image.yml
+# on every push to main. Supervisor pulls this instead of building on-device -
+# critical on a Raspberry Pi, where compiling TypeScript locally can exhaust
+# RAM and hang the whole box (as happened during the first install attempt).
+image: "ghcr.io/ammaralfarsi/whatsapp-reminder-platform"
 arch:
   - aarch64
   - amd64
@@ -12,35 +17,24 @@ boot: auto
 ingress: true
 ingress_port: 8080
 panel_icon: mdi:whatsapp
+timeout: 300
 ports:
   8080/tcp: 8080
 ports_description:
   8080/tcp: "Reminder platform HTTP API"
 options:
-  storage_backends: "ha_local"
-  public_base_url: "http://localhost:8080"
+  storage_backends: "postgres"
   database_url: ""
   google_sheets_spreadsheet_id: ""
-  google_oauth_client_id: ""
-  google_oauth_client_secret: ""
   waha_base_url: ""
   waha_api_key: ""
   ha_notify_webhook_url: "https://supervisor/core/api/webhook/reminder_sent"
   scheduler_cron: "*/1 * * * *"
   default_footer_template: "\n\n~Auto Reminder~      ~تذكير تلقائي~"
 schema:
-  # Bootstrap-only default for first boot; change which backend(s) are
-  # active any time afterwards from the add-on's web UI (Settings, reached
-  # via Ingress or http://<host>:8080/settings.html) without restarting.
-  storage_backends: "list(ha_local|postgres|sheets|postgres+sheets|postgres+ha_local|sheets+ha_local|postgres+sheets+ha_local)"
-  public_base_url: "str?"
+  storage_backends: "list(postgres|sheets|postgres+sheets)"
   database_url: "str?"
   google_sheets_spreadsheet_id: "str?"
-  # Powers the "Connect with Google" button in Settings - see .env.example
-  # for how to create this OAuth client. Leave blank to use a hand-created
-  # service account (GOOGLE_SERVICE_ACCOUNT_KEY_FILE) instead.
-  google_oauth_client_id: "str?"
-  google_oauth_client_secret: "password?"
   waha_base_url: "url"
   waha_api_key: "password"
   ha_notify_webhook_url: "str?"
