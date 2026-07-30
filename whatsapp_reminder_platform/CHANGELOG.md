@@ -5,6 +5,27 @@ here. Home Assistant's Supervisor reads this file directly and shows it on
 the add-on's info page, so keep it in sync with `version:` in `config.yaml`
 - bump one, add an entry here.
 
+## 1.7.2
+
+- **Fixed: `session_down`/`reminder_sent` webhook got 401 Unauthorized even
+  over http.** After 1.7.1 fixed the https-vs-http default, the internal
+  Supervisor proxy (`http://supervisor/core/api/webhook/...`) still
+  rejected every request with 401 - Supervisor gates *all* forwarded
+  `/core/api/*` calls on a bearer token, including webhook endpoints that
+  need no auth when hit directly on Core. The scheduler now sends
+  `Authorization: Bearer $SUPERVISOR_TOKEN` (reusing the token run.sh
+  already exports as `HA_LONG_LIVED_TOKEN`) whenever the webhook URL's host
+  is exactly `supervisor` - left off for any other host, since an external
+  HA instance's webhook is pre-authorized by the webhook ID itself and
+  would reject an unexpected Authorization header. No config change needed,
+  this just started working on next restart.
+- **Responsive layout pass.** `/reminder.html`, `/settings.html` and
+  `/dashboard.html` (via shared `ha-theme.css`) now handle narrow phone
+  widths properly: the top app bar wraps instead of overflowing when all
+  three nav tabs don't fit on one line, form inputs bump to 16px on small
+  screens (smaller sizes make iOS Safari auto-zoom on focus), and
+  cards/spacing tighten up below 600px.
+
 ## 1.7.1
 
 - **Fixed: `ha_notify_webhook_url` default pointed at https instead of http.**

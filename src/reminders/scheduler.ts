@@ -133,12 +133,7 @@ export class Scheduler {
   }
 
   private async notifyHomeAssistant(recipient: string, message: string) {
-    if (!config.haNotifyWebhookUrl) return;
-    try {
-      await axios.post(config.haNotifyWebhookUrl, { event: "reminder_sent", recipient, message }, { timeout: 10000 });
-    } catch (err) {
-      console.error("[scheduler] Home Assistant webhook notify failed:", err);
-    }
+    await this.postToHaWebhook({ event: "reminder_sent", recipient, message }, "reminder_sent");
   }
 
   /** Fires the same HA webhook used for successful sends, but with
@@ -154,10 +149,33 @@ export class Scheduler {
     this.sessionDownNotifiedAt.set(number.id, now);
 
     const message = `⚠️ WhatsApp number "${number.label}" (${number.phoneNumber}) is ${liveStatus === "qr" ? "waiting for QR scan" : liveStatus}, not connected - a reminder was skipped. Reconnect it from Settings / the Numbers page.`;
+    await this.postToHaWebhook({ event: "session_down", numberId: number.id, numberLabel: number.label, status: liveStatus, message }, "session_down");
+  }
+
+  /** POSTs to `ha_notify_webhook_url`/`HA_NOTIFY_WEBHOOK_URL`. When that URL
+   * points at the add-on's internal Supervisor proxy
+   * (`http://supervisor/core/api/webhook/...`), Supervisor gates *every*
+   * forwarded request on a bearer token - even a webhook endpoint that needs
+   * no auth when hit directly on Core - so this attaches
+   * `Authorization: Bearer $SUPERVISOR_TOKEN` (already available as
+   * `config.haWhatsapp.token`, see run.sh's `HA_LONG_LIVED_TOKEN`) only for
+   * that host. A webhook URL pointing at some other HA instance directly
+   * (plain Docker deployments) is pre-authorized by the webhook ID itself
+   * and must NOT get this header. */
+  private async postToHaWebhook(payload: Record<string, unknown>, label: string) {
+    if (!config.haNotifyWebhookUrl) return;
+    const headers: Record<string, string> = {};
     try {
-      await axios.post(config.haNotifyWebhookUrl, { event: "session_down", numberId: number.id, numberLabel: number.label, status: liveStatus, message }, { timeout: 10000 });
+      if (new URL(config.haNotifyWebhookUrl).hostname === "supervisor" && config.haWhatsapp.token) {
+        headers.Authorization = `Bearer ${config.haWhatsapp.token}`;
+      }
+    } catch {
+      // Malformed URL - let axios below report the real error.
+    }
+    try {
+      await axios.post(config.haNotifyWebhookUrl, payload, { timeout: 10000, headers });
     } catch (err) {
-      console.error("[scheduler] session-down webhook notify failed:", err);
+      console.error(`[scheduler] ${label} webhook notify failed:`, err);
     }
   }
 }
