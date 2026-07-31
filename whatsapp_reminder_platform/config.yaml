@@ -43,8 +43,9 @@ options:
   # Only matters for reminders created without an explicit UTC time (the HA
   # dashboard card's input_datetime, or the old Flutter app's date format);
   # `/reminder.html` always sends an unambiguous UTC instant regardless of
-  # this setting. Defaults to UTC; change it to match Home Assistant.
-  timezone: "UTC"
+  # this setting. Defaults to Asia/Muscat (Oman, UTC+4); change it if your
+  # Home Assistant installation uses another time zone.
+  timezone: "Asia/Muscat"
   # Comma-separated admin key(s) - paste one of these into the Settings page
   # (/settings.html, top of the page) to unlock storage backend selection,
   # Postgres setup and "Connect with Google". Leave blank and one is

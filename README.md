@@ -380,7 +380,8 @@ correct regardless of server timezone. Two other input paths aren't
 timezone-aware on their own: the Lovelace dashboard card's
 `input_datetime`, and the legacy Flutter app's date format. For those, set
 the `timezone` add-on option (or `TZ` env var in plain Docker/`.env`) to
-your IANA zone. The public default is UTC; change it to match Home Assistant.
+your IANA zone. The default is `Asia/Muscat` for Oman (UTC+4); change it if
+your Home Assistant installation uses another time zone.
 
 If a reminder is due but its WhatsApp number's session isn't actually
 connected (dropped, never finished pairing, etc.), the scheduler now checks
