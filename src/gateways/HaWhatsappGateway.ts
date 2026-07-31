@@ -6,18 +6,14 @@ import { WhatsAppGateway, SessionEnsureResult } from "./WhatsAppGateway";
  * custom integration that runs its own WhatsApp Web session and exposes it
  * as HA entities/services, rather than a standalone HTTP API like WAHA.
  *
- * IMPORTANT - this adapter is a best-effort stub, not a verified client.
+ * This adapter uses ha-whatsapp's documented native Home Assistant action:
+ * `whatsapp.send_message` with `target` and `message`.
  * ha-whatsapp doesn't expose a documented multi-session HTTP API the way
  * WAHA does; it's designed around one HA instance driving one WhatsApp
  * connection through its config flow (QR pairing happens in the HA UI, not
  * programmatically). Concretely:
  *   - sendText() calls the HA REST API's generic "call a service" endpoint
- *     (POST /api/services/<domain>/<service>), which is how any HA
- *     integration's actions are triggered externally. The service name and
- *     payload keys below (HA_WHATSAPP_SERVICE, "number"/"message") are
- *     assumptions based on typical HA notify-style integrations and WILL
- *     need to be corrected to match whatever ha-whatsapp actually registers
- *     once you check Developer Tools -> Actions in your HA instance.
+ *     (POST /api/services/<domain>/<service>).
  *   - ensureSession()/getSessionStatus() cannot truly provision a NEW
  *     per-user session over HTTP the way WAHA can - ha-whatsapp is one
  *     session per HA instance. This method just checks whether that HA
@@ -27,8 +23,8 @@ import { WhatsAppGateway, SessionEnsureResult } from "./WhatsAppGateway";
  *     and reserve ha-whatsapp for a single "primary" number tied to your HA
  *     box, or run one HA instance per user.
  *
- * Fix the TODOs below once you've confirmed the real service/entity names,
- * then this class is a drop-in replacement for WahaGateway per-number.
+ * It is a drop-in sending transport, but session provisioning remains owned
+ * by ha-whatsapp's own Home Assistant integration and companion app.
  */
 export class HaWhatsappGateway implements WhatsAppGateway {
   readonly kind = "ha-whatsapp";
@@ -42,7 +38,7 @@ export class HaWhatsappGateway implements WhatsAppGateway {
       validateStatus: () => true,
       timeout: 20000,
     });
-    this.service = service; // e.g. "whatsapp.send_message" - TODO confirm exact domain.service
+    this.service = service;
   }
 
   async ensureSession(_sessionId: string): Promise<SessionEnsureResult> {
@@ -71,11 +67,11 @@ export class HaWhatsappGateway implements WhatsAppGateway {
 
   async sendText(_sessionId: string, recipient: string, text: string): Promise<boolean> {
     const [domain, service] = this.service.split(".");
+    if (!domain || !service) {
+      throw new Error(`Invalid HA_WHATSAPP_SERVICE "${this.service}"; expected domain.service`);
+    }
     const res = await this.http.post(`/api/services/${domain}/${service}`, {
-      // TODO: confirm the real payload shape in HA Developer Tools -> Actions
-      // for the ha-whatsapp integration. Common alternatives: "target"/"data"
-      // wrapper (like notify.*), or "phone" instead of "number".
-      number: recipient,
+      target: recipient.startsWith("+") ? recipient : `+${recipient.replace(/\D/g, "")}`,
       message: text,
     });
     return res.status >= 200 && res.status < 300;

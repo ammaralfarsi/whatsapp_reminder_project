@@ -50,9 +50,11 @@ export class HaLocalAdapter implements StorageAdapter {
   }
 
   private persist(): Promise<void> {
-    this.writeQueue = this.writeQueue.then(() =>
-      fs.promises.writeFile(this.filePath, JSON.stringify(this.data, null, 2))
-    );
+    this.writeQueue = this.writeQueue.then(async () => {
+      const temporaryPath = `${this.filePath}.tmp`;
+      await fs.promises.writeFile(temporaryPath, JSON.stringify(this.data, null, 2), { mode: 0o600 });
+      await fs.promises.rename(temporaryPath, this.filePath);
+    });
     return this.writeQueue;
   }
 

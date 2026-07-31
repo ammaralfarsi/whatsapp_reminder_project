@@ -1,5 +1,5 @@
 {
-  "timeZone": "Asia/Muscat",
+  "timeZone": "Etc/UTC",
   "dependencies": {},
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8",

@@ -32,7 +32,12 @@ export function remindersRouter(storage: StorageAdapter): Router {
     if (!recipient || !message) return res.status(400).json({ error: "recipient and message are required" });
 
     const dateStr: string | undefined = body.triggerDateTime ?? body.dateTime ?? body.triggerAt;
-    const triggerAt = parseFlexibleDate(dateStr);
+    let triggerAt: Date;
+    try {
+      triggerAt = parseFlexibleDate(dateStr);
+    } catch (err: any) {
+      return res.status(400).json({ error: err.message });
+    }
 
     const recurrence = String(body.recurrence ?? body.recurring ?? "No").toLowerCase();
     const recurring = recurrence === "yes" || recurrence === "true";
@@ -73,10 +78,20 @@ export function remindersRouter(storage: StorageAdapter): Router {
     if (!reminder || reminder.userId !== req.user!.id) return res.status(404).json({ error: "Not found" });
 
     const patch = req.body ?? {};
+    let patchedTriggerAt = reminder.triggerAt;
+    try {
+      if (patch.triggerDateTime || patch.dateTime || patch.triggerAt) {
+        patchedTriggerAt = parseFlexibleDate(
+          patch.triggerDateTime ?? patch.dateTime ?? patch.triggerAt
+        ).toISOString();
+      }
+    } catch (err: any) {
+      return res.status(400).json({ error: err.message });
+    }
     Object.assign(reminder, {
       message: patch.message ?? reminder.message,
       recipient: patch.recipient ? String(patch.recipient).replace(/\D/g, "") : reminder.recipient,
-      triggerAt: patch.triggerDateTime || patch.dateTime || patch.triggerAt ? parseFlexibleDate(patch.triggerDateTime ?? patch.dateTime ?? patch.triggerAt).toISOString() : reminder.triggerAt,
+      triggerAt: patchedTriggerAt,
       status: patch.status ?? reminder.status,
       movedToDone: typeof patch.movedToDone === "boolean" ? patch.movedToDone : reminder.movedToDone,
     });
@@ -124,7 +139,7 @@ export function remindersRouter(storage: StorageAdapter): Router {
 }
 
 function parseFlexibleDate(dateStr?: string): Date {
-  if (!dateStr) return new Date();
+  if (!dateStr) throw new Error("triggerDateTime is required");
   const sanitized = dateStr.replace(/'/g, "").trim();
 
   if (sanitized.includes("T")) {
@@ -149,7 +164,7 @@ function parseFlexibleDate(dateStr?: string): Date {
     return new Date(year, month - 1, day, hour, minute, second);
   }
 
-  return new Date();
+  throw new Error("Invalid triggerDateTime; use an ISO timestamp or YYYY-MM-DD HH:mm:ss");
 }
 
 function normalizeFrequency(f: any): RecurrenceFrequency {

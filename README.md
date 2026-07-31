@@ -14,7 +14,7 @@ and storage. Runs as a plain Docker container or as a Home Assistant add-on.
 | Hardcoded footer text in code | Per-user, editable footer template (`PUT /api/templates`) |
 | Sheets only | Sheets, Postgres and/or a local JSON store, any combination, togglable live from a Settings page |
 | Apps Script triggers | `node-cron` scheduler inside the app (Docker or HA add-on) |
-| Single WAHA gateway | Gateway interface: WAHA (fully implemented) + ha-whatsapp (adapter stub, see caveats below) |
+| Single WAHA gateway | Gateway interface: WAHA + ha-whatsapp, selected per connected number |
 | Google service account JSON | "Connect with Google" - OAuth redirect, no API console work |
 | Hand-built Postgres connection string | Separate host/port/database/user/password fields, or one-click "Auto" container creation |
 | Old Apps Script web form | `/reminder.html` - a small standalone page to add a reminder from any browser, plus the original Lovelace card |
@@ -163,22 +163,15 @@ want this number to reuse instead of pairing again from scratch.
   number form shows the QR code inline and polls until it's scanned.
 
 - **[ha-whatsapp](https://github.com/FaserF/ha-whatsapp)**
-  (`src/gateways/HaWhatsappGateway.ts`) - **adapter stub, not verified**.
+  (`src/gateways/HaWhatsappGateway.ts`) - uses the documented
+  `whatsapp.send_message` action with `target` and `message`.
   ha-whatsapp is a Home Assistant custom integration built around one WhatsApp
   Web session per HA instance, paired manually through the HA config-flow UI
   - it doesn't expose the kind of multi-session HTTP API WAHA does, and
     there's no QR step in this app's UI for it (pairing happens in HA
-    itself). The adapter calls HA's generic "call a service" REST endpoint
-    (`POST /api/services/<domain>/<service>`) with a guessed payload shape.
-  Before relying on it:
-  1. Install ha-whatsapp in HA and pair it once through the UI.
-  2. Open **Developer Tools -> Actions**, find the real service it registers
-     (likely under `whatsapp.*` or `notify.*`), and check its exact field
-     names.
-  3. Update `HA_WHATSAPP_SERVICE` in `.env` and the payload keys in
-     `sendText()` in `HaWhatsappGateway.ts` to match.
-  Until then, use WAHA for every number - it's the fully-supported path and
-  is what the HA add-on's own reminder-sending number uses by default.
+    itself). Install and pair ha-whatsapp first; this app then calls its
+    documented action. Pairing stays in ha-whatsapp because it does not
+    expose WAHA-style remote session creation or QR endpoints.
 
 ## Setup
 
@@ -229,8 +222,8 @@ that prebuilt image, so installing is just a `docker pull`, not a build.
    Repositories**, and add your GitHub repo URL, e.g.
    `https://github.com/ammaralfarsi/whatsapp_reminder_project`. Click **Add**,
    then close and reopen the Add-on Store.
-4. "WhatsApp Reminder Platform" should now appear under a new "Ammar's
-   Add-ons" section. Install it - this pulls the image from GHCR instead of
+4. "WhatsApp Reminder Platform" should now appear under "WhatsApp Reminder
+   Apps". Install it - this pulls the image from GHCR instead of
    building, so it should be fast and light even on a Pi.
 5. Fill in the add-on's **Configuration** tab: storage backend(s), WAHA
    URL/key, and - if you're enabling Postgres from here rather than from
@@ -296,7 +289,7 @@ The new user then:
 #    see GET /api/gateways/waha/sessions to list what's available)
 curl -X POST https://your-host:8086/api/numbers \
   -H "X-Api-Key: <their apiKey>" -H "Content-Type: application/json" \
-  -d '{"label":"Personal","phoneNumber":"96895537783","gateway":"waha"}'
+  -d '{"label":"Personal","phoneNumber":"15551234567","gateway":"waha"}'
 
 # 2. Get the QR code to scan in WhatsApp
 curl https://your-host:8086/api/numbers/<numberId>/qr -H "X-Api-Key: <their apiKey>"
@@ -306,7 +299,7 @@ curl -X POST https://your-host:8086/api/reminders \
   -H "X-Api-Key: <their apiKey>" -H "Content-Type: application/json" \
   -d '{
         "numberId":"<numberId>",
-        "recipient":"96895537783",
+        "recipient":"15551234567",
         "message":"تجديد اشتراك iCloud",
         "triggerDateTime":"2026-12-24T10:10:00",
         "recurrence":"Yes",
@@ -387,8 +380,7 @@ correct regardless of server timezone. Two other input paths aren't
 timezone-aware on their own: the Lovelace dashboard card's
 `input_datetime`, and the legacy Flutter app's date format. For those, set
 the `timezone` add-on option (or `TZ` env var in plain Docker/`.env`) to
-your IANA zone - this deployment defaults to `Asia/Muscat`; change it or
-blank it out (add-on option) for UTC.
+your IANA zone. The public default is UTC; change it to match Home Assistant.
 
 If a reminder is due but its WhatsApp number's session isn't actually
 connected (dropped, never finished pairing, etc.), the scheduler now checks

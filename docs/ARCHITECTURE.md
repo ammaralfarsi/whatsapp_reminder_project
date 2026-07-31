@@ -44,7 +44,7 @@ repository.yaml                  marks this repo as a Home Assistant add-on repo
                                   GHCR on every push to main - see "Not built on-device" below
 whatsapp_reminder_platform/      the HA app (formerly "add-on") itself - config.yaml, Dockerfile, run.sh, dashboard-example.yaml.
                                   No build.yaml - since Supervisor 2026.04.0 that file isn't read. config.yaml sets
-                                  `image: ghcr.io/ammaralfarsi/whatsapp-reminder-platform`, so Supervisor pulls the
+                                  `image:` in the app config points Supervisor at the published GHCR image, so it pulls the
                                   CI-built image instead of building locally.
 Dockerfile, docker-compose.yml   plain container deployment (uses src/ directly, no cloning needed)
 ```

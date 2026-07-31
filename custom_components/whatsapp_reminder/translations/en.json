@@ -1,0 +1,21 @@
+{
+  "title": "WhatsApp Reminder",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to WhatsApp Reminder",
+        "description": "Enter the direct URL of the reminder app and this user's API key.",
+        "data": {
+          "url": "App URL",
+          "api_key": "User API key"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect or the API key is invalid."
+    },
+    "abort": {
+      "already_configured": "This app user is already configured."
+    }
+  }
+}

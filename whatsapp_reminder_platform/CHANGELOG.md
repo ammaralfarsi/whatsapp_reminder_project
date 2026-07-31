@@ -5,6 +5,14 @@ here. Home Assistant's Supervisor reads this file directly and shows it on
 the add-on's info page, so keep it in sync with `version:` in `config.yaml`
 - bump one, add an entry here.
 
+## 1.8.0
+
+- Corrected the `ha-whatsapp` action payload.
+- Invalid reminder dates now return a validation error.
+- Local storage writes now use an atomic replace.
+- Removed personal attribution and personal-looking example data.
+- Added the initial HACS companion integration.
+
 ## 1.7.2
 
 - **Fixed: `session_down`/`reminder_sent` webhook got 401 Unauthorized even
@@ -100,8 +108,7 @@ the add-on's info page, so keep it in sync with `version:` in `config.yaml`
   client-side, so it's correct regardless of server timezone. For the two
   paths that still send timezone-naive values - the Lovelace dashboard
   card's `input_datetime`, and the legacy Flutter app's date format - added
-  a `timezone` add-on option / `TZ` env var (defaults to `Asia/Muscat` for
-  this deployment; change or blank it out for UTC). The plain-Docker
+  a `timezone` add-on option / `TZ` env var. The plain-Docker
   `Dockerfile` now installs `tzdata` so named zones resolve correctly there
   too.
 - **New: notified when a session is down.** If a reminder is due but its
@@ -136,8 +143,8 @@ the add-on's info page, so keep it in sync with `version:` in `config.yaml`
 
 ## 1.2.0
 
-- Added a footer to Settings and `/reminder.html`: "Developed by: Ammar Al
-  Farsi", the running version (new public `GET /api/version`, backed by
+- Added a footer to Settings and `/reminder.html`, the running version (new
+  public `GET /api/version`, backed by
   `package.json`, now kept in sync with `config.yaml` on every bump), and a
   GitHub link icon.
 - Added `webui` to `config.yaml`, so the add-on's Info tab gets an "Open Web

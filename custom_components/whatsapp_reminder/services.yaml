@@ -1,0 +1,34 @@
+create_reminder:
+  name: Create reminder
+  description: Create a reminder for the configured user.
+  fields:
+    numberId:
+      name: Sending number ID
+      required: true
+      selector:
+        text:
+    recipient:
+      name: Recipient
+      required: true
+      selector:
+        text:
+    message:
+      name: Message
+      required: true
+      selector:
+        text:
+          multiline: true
+    triggerDateTime:
+      name: Date and time
+      required: true
+      selector:
+        datetime:
+send_now:
+  name: Send reminder now
+  description: Immediately send an existing reminder.
+  fields:
+    reminder_id:
+      name: Reminder ID
+      required: true
+      selector:
+        text:
